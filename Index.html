@@ -1,0 +1,798 @@
+<!-- Archivo oficial de interfaz (Apps Script: Index). Subir con: clasp push -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+      /* --- PALETA DE COLORES UTZMG EN LÍNEA --- */
+      body {
+        background-color: #e8f5f1 !important; /* Fondo general Verde Menta Suave */
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+
+      select.input-calif.captura-solo-lectura {
+        pointer-events: none;
+        background-color: #e9ecef !important;
+        cursor: not-allowed;
+      }
+
+      /* Contenedor blanco para el Login */
+      .login-card {
+        background: #ffffff !important;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        max-width: 480px;
+        width: 100%;
+        padding: 35px;
+        border-top: 8px solid #5c061c !important; /* Acento Tinto Superior */
+        border-bottom: 8px solid #0f5132 !important; /* Acento Verde Oscuro Inferior */
+      }
+
+      /* Encabezado dentro del Sistema (Predomina Verde Menta Oscuro) */
+      .header-institucional {
+        background-color: #0f5132 !important; /* Verde Menta Institucional Oscuro */
+        color: #ffffff !important;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-left: 6px solid #5c061c !important; /* Detalle elegante en Tinto */
+      }
+      
+      .subtitulo-universidad {
+        font-size: 0.85rem;
+        letter-spacing: 2px;
+        color: #a3e2c9 !important; /* Menta brillante */
+        font-weight: bold;
+      }
+
+      .usuario-perfil-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+      }
+
+      .avatar-perfil-wrap {
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .avatar-perfil-usuario {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        display: block;
+      }
+
+      .avatar-perfil-usuario.avatar-lg {
+        width: 52px;
+        height: 52px;
+      }
+
+      .avatar-perfil-iniciales {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #5c061c 0%, #0f5132 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        user-select: none;
+      }
+
+      .avatar-perfil-iniciales.avatar-lg {
+        width: 52px;
+        height: 52px;
+        font-size: 1rem;
+      }
+
+     /* Botón de Ingreso Estilo Tinto Premium */
+      .btn-tinto-principal {
+        background-color: #5c061c !important;
+        color: #ffffff !important;
+        border: none !important;
+        font-weight: bold;
+        font-size: 1.1rem;
+        padding: 12px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+
+      .btn-tinto-principal:hover {
+        background-color: #420413 !important;
+        transform: translateY(-1px);
+      }
+
+      /* EFECTO DE CLIC REACCIÓN */
+      .btn-tinto-principal:active {
+        background-color: #2b020b !important;
+        transform: scale(0.96);
+        box-shadow: inset 0 3px 5px rgba(0,0,0,0.3) !important;
+      }
+
+      /* Botón de Guardar en Verde Menta Fuerte */
+      .btn-menta-guardar {
+        background-color: #198754 !important;
+        color: #ffffff !important;
+        border: none !important;
+        font-weight: bold;
+        padding: 12px 30px;
+        border-radius: 6px;
+      }
+
+      .btn-menta-guardar:hover {
+        background-color: #0f5132 !important;
+      }
+
+      /* Cabecera de Tabla en Verde Menta */
+      .table-utzmg-header th {
+        background-color: #0f5132 !important;
+        color: #ffffff !important;
+        font-weight: 600;
+        border-color: #0f5132;
+      }
+
+      .loader {
+        text-align: center;
+        padding: 30px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        border: 1px solid #a3e2c9;
+        margin: 20px 0;
+      }
+
+      /* Ocultar las pantallas del sistema por defecto en la carga inicial */
+      #pantalla-sistema, #pantalla-admin, #pantalla-estudiante {
+        display: none !important;
+      }
+
+      /* Banner de captura cerrada — visible y persistente */
+      #alerta-bloqueo {
+        display: none;
+        background: linear-gradient(135deg, #842029 0%, #dc3545 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 10px;
+        animation: pulso-bloqueo 2s ease-in-out infinite;
+      }
+
+      #alerta-bloqueo .alert-heading,
+      #alerta-bloqueo p {
+        color: #ffffff !important;
+      }
+
+      @keyframes pulso-bloqueo {
+        0%, 100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+        50% { box-shadow: 0 4px 25px rgba(220, 53, 69, 0.7); }
+      }
+
+      #banner-bloqueo-superior {
+        display: none;
+        background-color: #842029;
+        color: #ffffff;
+        text-align: center;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        position: sticky;
+        top: 0;
+        z-index: 1050;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      /* Forzar que el fondo de la pantalla de login use todo el espacio */
+      #pantalla-login {
+        display: flex !important;
+      }
+
+      .login-logo {
+        max-width: 240px;
+        width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto 12px;
+      }
+
+      .guia-unidades-docente {
+        background: #ffffff;
+        border-left: 5px solid #0f5132 !important;
+      }
+
+      .guia-unidades-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e8f5f1 0%, #d1ebe3 100%);
+        color: #0f5132;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+      }
+
+      .guia-paso {
+        background: #f8faf9;
+        border: 1px solid #e2ece8;
+        border-radius: 12px;
+        padding: 14px 14px 14px 16px;
+        position: relative;
+      }
+
+      .guia-paso-num {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #5c061c;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .guia-paso h6 {
+        color: #0f5132;
+        padding-right: 28px;
+      }
+
+      #btn-toggle-guia-unidades {
+        background-color: #ffc107 !important;
+        border: 2px solid #e6a800 !important;
+        color: #3d2e00 !important;
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.45);
+        animation: guia-rapida-parpadeo 1.4s ease-in-out infinite;
+      }
+
+      #btn-toggle-guia-unidades:hover,
+      #btn-toggle-guia-unidades:focus {
+        background-color: #ffcd39 !important;
+        border-color: #cc9a00 !important;
+        color: #2b2000 !important;
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.65);
+      }
+
+      #btn-toggle-guia-unidades:focus-visible {
+        outline: none;
+      }
+
+      #btn-toggle-guia-unidades.guia-abierta {
+        animation: none;
+        background-color: #e9ecef !important;
+        border-color: #adb5bd !important;
+        color: #495057 !important;
+        box-shadow: none;
+      }
+
+      @keyframes guia-rapida-parpadeo {
+        0%, 100% {
+          opacity: 1;
+          box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.35), 0 2px 8px rgba(255, 193, 7, 0.5);
+        }
+        50% {
+          opacity: 0.88;
+          box-shadow: 0 0 0 8px rgba(255, 193, 7, 0.15), 0 0 18px rgba(255, 193, 7, 0.75);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    
+    <div id="pantalla-login" class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
+      <div class="login-card text-center">
+        <img id="img-logo-login" class="login-logo" alt="Logotipo UTZMG" width="240" height="80" />
+        <div class="mb-4">
+          <small class="text-muted fw-bold" style="letter-spacing: 1px;">PLATAFORMA PROVISIONAL</small>
+          <h5 style="color: #5c061c; font-weight: 800; margin-top: 5px; line-height: 1.3; font-size: 1.25rem;">
+            UNIVERSIDAD TECNOLÓGICA DE LA ZONA METROPOLITANA DE GUADALAJARA
+          </h5>
+          <div style="height: 3px; background: linear-gradient(to right, #5c061c, #0f5132); width: 50%; margin: 15px auto;"></div>
+        </div>
+
+        <p class="text-secondary small mb-4">Captura docente, consulta de calificaciones para estudiantes y panel administrativo.</p>
+        
+        <button type="button" class="btn btn-tinto-principal w-100 py-2 shadow-sm" onclick="iniciarSesionPlataforma()">
+          <i class="bi bi-google me-2"></i> Ingresar a la Aplicación ➔
+        </button>
+        
+        <div class="mt-4 pt-2">
+          <small class="text-muted d-block" style="font-size: 0.75rem;">
+            ¿Problemas técnicos o de acceso?
+            <a href="mailto:direccionacademica@utzmg.edu.mx">direccionacademica@utzmg.edu.mx</a>
+          </small>
+          <small class="text-muted" style="font-size: 0.75rem;">© 2026 UTZMG • Todos los derechos reservados</small>
+        </div>
+      </div>
+    </div>
+
+    <div id="pantalla-sistema" class="container mt-4 mb-5">
+      <div id="banner-bloqueo-superior">
+        <i class="bi bi-lock-fill me-2"></i>
+        CAPTURA DE CALIFICACIONES CERRADA — Solo consulta permitida. Soporte: <a href="mailto:direccionacademica@utzmg.edu.mx" class="text-white text-decoration-underline">direccionacademica@utzmg.edu.mx</a>
+      </div>
+
+      <div class="card p-3 shadow-sm border-0 mb-4" style="background-color: #ffffff; border-left: 5px solid #5c061c !important;">
+        <div class="d-flex align-items-center">
+          <div class="avatar-perfil-wrap me-3">
+            <img id="avatar-perfil-docente-bienvenida" class="avatar-perfil-usuario avatar-lg d-none" alt="Foto de perfil" referrerpolicy="no-referrer" width="52" height="52">
+            <span id="avatar-iniciales-docente-bienvenida" class="avatar-perfil-iniciales avatar-lg" aria-hidden="true">—</span>
+          </div>
+          <div>
+          <h5 class="fw-bold mb-0 text-dark">¡Bienvenido(a), <span id="nombre-saludo-docente" style="color: #5c061c !important; font-weight: 800;">Cargando...</span>!</h5>
+            
+          </div>
+        </div>
+      </div>
+      <div class="header-institucional d-flex flex-column flex-md-row justify-content-between align-items-center text-center text-md-start">
+        <div>
+          <span class="subtitulo-universidad text-uppercase">Plataforma Provisional</span>
+          <h4 class="m-0 fw-bold" style="font-size: 1.35rem;">
+            Universidad Tecnológica de la Zona Metropolitana de Guadalajara
+          </h4>
+        </div>
+        <div class="text-md-end mt-3 mt-md-0 d-flex flex-wrap align-items-center justify-content-center justify-content-md-end gap-2">
+          <div class="usuario-perfil-chip">
+            <div class="avatar-perfil-wrap">
+              <img id="avatar-perfil-docente" class="avatar-perfil-usuario d-none" alt="Foto de perfil" referrerpolicy="no-referrer" width="44" height="44">
+              <span id="avatar-iniciales-docente" class="avatar-perfil-iniciales" aria-hidden="true">—</span>
+            </div>
+            <span class="badge bg-light text-dark font-monospace p-2 shadow-sm fs-6" id="txt-correo">Cargando usuario...</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-danger fw-bold" onclick="cerrarSesionPlataforma()">
+            Salir
+          </button>
+        </div>
+      </div>
+
+      <div class="card guia-unidades-docente shadow-sm mb-4">
+        <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="guia-unidades-icon" aria-hidden="true"><i class="bi bi-journal-check"></i></span>
+            <div>
+              <h6 class="fw-bold mb-0 text-dark">Total de unidades según su Programa de Asignatura</h6>
+              <small class="text-muted">Registre <strong>una sola vez</strong> cuántas unidades evalúa la materia; luego capture calificaciones <strong>unidad por unidad</strong> (U1, U2…).</small>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm fw-semibold px-3" id="btn-toggle-guia-unidades" onclick="toggleGuiaUnidadesDocente()" aria-expanded="false" aria-controls="guia-unidades-detalle">
+            <i class="bi bi-lightbulb me-1"></i> Guía rápida
+          </button>
+        </div>
+        <div id="guia-unidades-detalle" class="d-none border-top bg-light px-3 px-md-4 pb-3 pt-3">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="guia-paso">
+                <span class="guia-paso-num">1</span>
+                <h6 class="fw-bold mb-2">Registre el total (una vez)</h6>
+                <p class="small text-muted mb-0">Tras elegir <strong>Grupo y Materia</strong>, indique <strong>cuántas unidades</strong> tiene la materia (ej. 5). No es la captura de calificaciones; solo define U1…U5.</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="guia-paso">
+                <span class="guia-paso-num">2</span>
+                <h6 class="fw-bold mb-2">Temporal o definitivo</h6>
+                <p class="small text-muted mb-0"><strong>Guardar temporal</strong> mientras revisa (actas parciales con leyenda de borrador). <strong>Guardar definitivo</strong> cuando confirme las calificaciones de la unidad.</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="guia-paso">
+                <span class="guia-paso-num">3</span>
+                <h6 class="fw-bold mb-2">Acta de integración</h6>
+                <p class="small text-muted mb-0">Disponible cuando <strong>todas</strong> las unidades estén en definitivo. Si el número fue incorrecto, use <strong>Corregir número de unidades</strong>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="alerta-bloqueo" class="alert shadow-sm p-4 mb-4" role="alert">
+        <div class="d-flex align-items-center">
+          <div class="me-3 fs-1"><i class="bi bi-exclamation-octagon-fill"></i></div>
+          <div>
+            <h5 class="alert-heading fw-bold mb-2">⛔ Periodo de captura cerrado</h5>
+            <p class="mb-1">El registro y la edición de calificaciones están <strong>deshabilitados</strong> en este momento.</p>
+            <p class="mb-0 small opacity-75">Puede consultar la información ya capturada, pero no podrá guardar cambios ni descargar actas hasta que se reabra el periodo.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-4 shadow-sm mb-4 bg-white" style="border-left: 5px solid #5c061c !important;">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark">1. Selecciona tu Grupo y Materia:</label>
+            <select id="select-asignacion" class="form-select">
+              <option value="">-- Selecciona Grupo y Asignatura --</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark">2. Unidad a capturar (una a la vez):</label>
+            <select id="select-periodo" class="form-select" disabled>
+              <option value="">-- Primero registre el total de unidades --</option>
+            </select>
+            <small class="text-muted">Aquí elige U1, U2… para registrar las calificaciones de <strong>esa</strong> unidad.</small>
+          </div>
+        </div>
+        <div id="panel-config-unidades" class="mt-3 p-3 rounded border border-success bg-light" style="display: none;">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <span class="text-muted small d-block">Total registrado para esta materia (Programa de Asignatura)</span>
+              <strong id="lbl-total-unidades" class="text-dark fs-5">—</strong>
+              <span class="small text-muted d-block mt-1">Las calificaciones se capturan después, eligiendo cada unidad en el paso 2.</span>
+            </div>
+            <button type="button" id="btn-editar-unidades" class="btn btn-outline-secondary btn-sm fw-bold" onclick="solicitarEdicionNumeroUnidades()">
+              ✏️ Corregir total de unidades
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loader" class="loader" style="display:none;">
+        <div class="spinner-border text-success" role="status"></div>
+        <p class="mt-2 text-muted fw-semibold" id="loader-texto">Procesando datos...</p>
+      </div>
+
+      <div id="seccion-captura" style="display:none;">
+        <div class="card p-4 shadow-sm bg-white" style="border-left: 5px solid #0f5132 !important;">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h4 id="titulo-tabla" class="text-dark mb-0 fw-bold">Listado de Alumnos</h4>
+            <div id="panel-estado-unidad" class="text-end" style="display: none;">
+              <span class="text-muted small d-block">Estado de guardado de la unidad</span>
+              <span id="badge-estado-unidad" class="badge bg-secondary fs-6">—</span>
+            </div>
+          </div>
+          
+          <p id="lbl-modelo-evaluacion" class="small text-muted mb-2" style="display: none;"></p>
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle m-0">
+              <thead class="table-utzmg-header">
+                <tr>
+                  <th style="width: 15%; text-align: center;">Matrícula</th>
+                  <th style="width: 55%;">Nombre del Estudiante</th>
+                  <th style="width: 30%; text-align: center;">Calificación (numérica)</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-alumnos">
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 gap-2">
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" id="btn-imprimir" class="btn btn-outline-dark btn-lg px-4 fw-bold" onclick="ejecutarDescargaExcelPuente()">
+                📄 Acta parcial (PDF)
+              </button>
+              <button type="button" id="btn-acta-integracion" class="btn btn-outline-success btn-lg px-4 fw-bold" onclick="ejecutarDescargaActaIntegracion()" disabled title="Disponible cuando todas las unidades estén guardadas de forma definitiva">
+                📊 Acta de integración (PDF)
+              </button>
+              <button type="button" id="btn-asistencia" class="btn btn-outline-primary btn-lg px-4 fw-bold" onclick="ejecutarDescargaAsistencia()">
+                📅 Lista de Asistencia (Excel)
+              </button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+              <button type="button" id="btn-guardar-temporal" class="btn btn-warning btn-lg px-4 fw-bold text-dark" onclick="guardarCalificaciones('TEMPORAL')">
+                💾 Guardar temporal
+              </button>
+              <button type="button" id="btn-guardar-definitivo" class="btn btn-menta-guardar btn-lg px-4 fw-bold" onclick="guardarCalificaciones('DEFINITIVO')">
+                ✅ Guardar definitivo
+              </button>
+            </div>
+          </div>
+          <p id="msg-acta-integracion" class="small text-muted mt-2 mb-0"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="pantalla-estudiante" class="container mt-4 mb-5">
+      <div id="banner-vista-previa-estudiante-admin" class="alert alert-warning border-0 shadow-sm mb-3 d-none" role="status">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div class="small">
+            <strong>Vista previa de administrador.</strong>
+            Está viendo el portal como el alumno <span class="font-monospace fw-bold" id="lbl-vista-previa-matricula">—</span>
+            (<span id="lbl-vista-previa-nombre">—</span>). Solo lectura; su sesión sigue siendo de administrador.
+          </div>
+          <button type="button" class="btn btn-sm btn-dark fw-bold" onclick="cerrarVistaPreviaPortalEstudianteAdmin()">
+            Volver al panel admin
+          </button>
+        </div>
+      </div>
+      <div class="header-institucional d-flex flex-column flex-md-row justify-content-between align-items-center text-center text-md-start">
+        <div>
+          <span class="subtitulo-universidad text-uppercase">Portal del estudiante</span>
+          <h4 class="m-0 fw-bold" style="font-size: 1.35rem;">Consulta de calificaciones</h4>
+        </div>
+        <div class="text-md-end mt-3 mt-md-0 d-flex flex-wrap align-items-center justify-content-center justify-content-md-end gap-2">
+          <div class="usuario-perfil-chip">
+            <div class="avatar-perfil-wrap">
+              <img id="avatar-perfil-estudiante" class="avatar-perfil-usuario d-none" alt="Foto de perfil" referrerpolicy="no-referrer" width="44" height="44">
+              <span id="avatar-iniciales-estudiante" class="avatar-perfil-iniciales" aria-hidden="true">—</span>
+            </div>
+            <span class="badge bg-light text-dark font-monospace p-2 shadow-sm fs-6" id="txt-correo-estudiante">—</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-danger fw-bold" onclick="cerrarSesionPlataforma()">Salir</button>
+        </div>
+      </div>
+
+      <div class="card p-4 shadow-sm mb-4 bg-white" style="border-left: 5px solid #0f5132 !important;">
+        <div class="row g-2 align-items-center">
+          <div class="col-auto d-none d-md-block">
+            <div class="avatar-perfil-wrap">
+              <img id="avatar-perfil-estudiante-card" class="avatar-perfil-usuario avatar-lg d-none" alt="Foto de perfil" referrerpolicy="no-referrer" width="52" height="52">
+              <span id="avatar-iniciales-estudiante-card" class="avatar-perfil-iniciales avatar-lg" aria-hidden="true">—</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <small class="text-muted d-block">Estudiante</small>
+            <strong id="lbl-est-nombre" class="text-dark fs-5">—</strong>
+          </div>
+          <div class="col-md-3">
+            <small class="text-muted d-block">Matrícula</small>
+            <strong id="lbl-est-matricula" class="font-monospace">—</strong>
+          </div>
+          <div class="col-md-3">
+            <small class="text-muted d-block">Cuatrimestre</small>
+            <strong id="lbl-est-cuatrimestre">—</strong>
+          </div>
+          <div class="col-md-8">
+            <small class="text-muted d-block">Carrera</small>
+            <span id="lbl-est-carrera">—</span>
+          </div>
+          <div class="col-md-4">
+            <small class="text-muted d-block">Grupo</small>
+            <span id="lbl-est-grupo">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-info border-0 shadow-sm small mb-4">
+        <i class="bi bi-info-circle me-1"></i>
+        Las calificaciones en <strong>temporal</strong> son provisionales (borrador del docente). Las marcadas como <strong>definitivo</strong> son las registradas oficialmente para esa unidad.
+        El <strong>promedio por materia</strong> (en el detalle) requiere acta de integración. Su <strong>promedio final</strong> y <strong>estatus</strong> del cuatrimestre solo aparecen cuando todas sus materias tienen calificaciones definitivas en todas sus unidades.
+      </div>
+
+      <div id="bloque-promedio-estatus-cuatrimestre" class="card shadow-sm mb-4 bg-white" style="border-left: 5px solid #0f5132 !important;">
+        <div class="card-body">
+          <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calculator me-1"></i> Promedio y estatus del cuatrimestre</h6>
+          <div id="estado-promedio-pendiente-est" class="alert alert-secondary border-0 mb-0 small">
+            <i class="bi bi-hourglass-split me-1"></i>
+            <span id="txt-promedio-pendiente-est">Cargando...</span>
+          </div>
+          <div id="estado-promedio-listo-est" class="row g-3 align-items-center d-none">
+            <div class="col-md-6">
+              <small class="text-muted d-block">Promedio final</small>
+              <span class="fs-4 fw-bold" id="lbl-est-promedio-final-num">—</span>
+              <span class="text-muted ms-1" id="lbl-est-promedio-final-alfa">—</span>
+            </div>
+            <div class="col-md-6">
+              <small class="text-muted d-block">Estatus</small>
+              <span class="badge fs-6 p-2" id="badge-est-estatus-global">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm bg-white mb-4">
+        <div class="card-header bg-white fw-bold text-dark py-3">
+          Mis materias
+          <span class="text-muted fw-normal small ms-2">(seleccione una para ver calificaciones por unidad)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-utzmg-header">
+              <tr>
+                <th>Materia</th>
+                <th>Docente</th>
+                <th>Carrera</th>
+                <th class="text-center" title="Unidades guardadas en definitivo por el docente">Definitivas</th>
+                <th class="text-center" title="Unidades con calificación provisional (temporal)">Temporales</th>
+                <th class="text-center">Ver</th>
+              </tr>
+            </thead>
+            <tbody id="lista-materias-estudiante">
+              <tr><td colspan="6" class="text-center text-muted py-4">Cargando materias...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="panel-detalle-materia-estudiante" class="card shadow-sm bg-white mb-4 d-none">
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center py-3">
+          <div>
+            <span class="text-muted small d-block">Detalle de calificaciones</span>
+            <strong id="titulo-detalle-materia-est" class="text-dark">—</strong>
+            <span class="text-muted small d-block mt-1"><i class="bi bi-person-workspace me-1"></i>Docente: <span id="lbl-docente-materia-est">—</span></span>
+            <span class="small d-block mt-1" id="lbl-avance-unidades-materia-est">—</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2 mt-md-0" onclick="cerrarDetalleMateriaEstudiante()">
+            <i class="bi bi-x-lg"></i> Cerrar
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0 align-middle">
+            <thead class="table-utzmg-header">
+              <tr>
+                <th>Unidad</th>
+                <th class="text-center">Numérica</th>
+                <th class="text-center">Alfabética</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-unidades-materia-estudiante"></tbody>
+          </table>
+        </div>
+        <div id="bloque-promedio-materia-est" class="card-footer bg-white d-none">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+              <small class="text-muted d-block">Promedio de integración (materia)</small>
+              <span class="fs-5 fw-bold" id="lbl-promedio-materia-num">—</span>
+              <span class="text-muted ms-1" id="lbl-promedio-materia-alfa">—</span>
+            </div>
+            <div class="col-md-6">
+              <small class="text-muted d-block">Estatus en la materia</small>
+              <span class="badge fs-6 p-2" id="badge-estatus-materia">—</span>
+            </div>
+          </div>
+          <p class="small text-muted mb-0 mt-2" id="msg-promedio-materia-pendiente"></p>
+        </div>
+      </div>
+
+      <p class="text-center text-muted small mt-3 mb-0">
+        Soporte técnico:
+        <a href="mailto:direccionacademica@utzmg.edu.mx">direccionacademica@utzmg.edu.mx</a>
+      </p>
+    </div>
+
+    <div id="pantalla-admin" class="container mt-4 mb-5">
+      <div class="header-institucional d-flex justify-content-between align-items-center bg-dark text-white">
+        <div>
+          <span class="text-warning text-uppercase small fw-bold">Panel de Control</span>
+          <h4 class="m-0 fw-bold">Administración General - Dashboard Institucional</h4>
+        </div>
+        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+          <div class="usuario-perfil-chip me-1">
+            <div class="avatar-perfil-wrap">
+              <img id="avatar-perfil-admin" class="avatar-perfil-usuario d-none" alt="Foto de perfil" referrerpolicy="no-referrer" width="44" height="44">
+              <span id="avatar-iniciales-admin" class="avatar-perfil-iniciales" aria-hidden="true">—</span>
+            </div>
+            <span class="badge bg-light text-dark font-monospace p-2 shadow-sm fs-6" id="txt-correo-admin">—</span>
+          </div>
+          <button type="button" id="btn-toggle-bloqueo" class="btn btn-sm btn-warning fw-bold" onclick="toggleBloqueoPlataforma()">
+            🔒 Cerrar Captura
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-light fw-bold" onclick="consultarActaPorCodigo()" title="Validar códigos de actas definitivas">
+            🔐 Verificar acta
+          </button>
+          <button type="button" class="btn btn-sm btn-danger fw-bold" onclick="cerrarSesionPlataforma()">Salir de Admin</button>
+        </div>
+      </div>
+
+      <div class="card p-4 bg-white shadow-sm mb-4 border-start border-info border-4">
+        <h5 class="fw-bold text-dark mb-2"><i class="bi bi-mortarboard me-1"></i> Vista previa — portal del estudiante</h5>
+        <p class="small text-muted mb-3">
+          Consulte calificaciones en tiempo real <strong>como las ve el alumno</strong>, sin iniciar sesión con su correo
+          ni modificar su registro. Busque por matrícula o nombre y seleccione un resultado.
+        </p>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label small fw-bold mb-1" for="input-buscar-alumno-vista">Buscar alumno</label>
+            <input type="text" class="form-control" id="input-buscar-alumno-vista" placeholder="Matrícula o nombre…" autocomplete="off"
+              onkeydown="if (event.key === 'Enter') { event.preventDefault(); buscarAlumnosVistaAdmin(); }" />
+          </div>
+          <div class="col-md-4">
+            <button type="button" class="btn btn-primary w-100 fw-bold" onclick="buscarAlumnosVistaAdmin()">Buscar y abrir lista</button>
+          </div>
+        </div>
+        <div id="lista-resultados-vista-alumno" class="list-group list-group-flush mt-3 border rounded d-none" style="max-height: 220px; overflow-y: auto;"></div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <div class="card p-3 text-center bg-white shadow-sm border-start border-success border-4">
+            <h6 class="text-muted small">MATRÍCULA TOTAL</h6>
+            <h2 id="lbl-total-alumnos" class="fw-bold text-success">-</h2>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card p-3 text-center bg-white shadow-sm border-start border-primary border-4">
+            <h6 class="text-muted small">EFICIENCIA TERMINAL GLOBAL</h6>
+            <h2 id="lbl-eficiencia" class="fw-bold text-primary">-</h2>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card p-3 text-center bg-white shadow-sm border-start border-danger border-4">
+            <h6 class="text-muted small">ALUMNOS EN RIESGO</h6>
+            <h2 id="lbl-riesgo" class="fw-bold text-danger">-</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <div class="card p-3 text-center bg-white shadow-sm border-start border-warning border-4">
+            <h6 class="text-muted small text-uppercase">⚠️ Carrera con Mayor Índice de Reprobación</h6>
+            <h4 id="lbl-carrera-reprobacion" class="fw-bold text-warning-dark mt-2" style="color: #856404;">Cargando...</h4>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card p-3 text-center bg-white shadow-sm border-start border-info border-4">
+            <h6 class="text-muted small text-uppercase">🏆 Carrera con Mejor Promedio</h6>
+            <h4 id="lbl-mejor-promedio" class="fw-bold text-info-dark mt-2" style="color: #0c5460;">Cargando...</h4>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+          <div class="card p-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-3 text-dark">Estatus de Captura por Docente</h5>
+            <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+              <table class="table table-hover align-middle m-0">
+                <thead class="table-dark">
+                  <tr>
+                    <th>Docente / Correo</th>
+                    <th class="text-center">Total</th>
+                    <th class="text-center">Cargas</th>
+                    <th class="text-center">Semáforo</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-semaforo-docentes"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card p-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-3 text-dark">Distribución de matrícula por carrera</h5>
+            <div style="position: relative; height: 340px;">
+              <canvas id="graficaCarreras"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card p-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-1 text-dark">Índice de Rendimiento Escolar</h5>
+            <small class="text-muted d-block mb-3">Distribución porcentual de aprobación y reprobación por división académica</small>
+            <div style="position: relative; height: 320px;">
+              <canvas id="graficaEficienciaCarreras"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card p-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-1 text-dark">Promedio General por Carrera</h5>
+            <small class="text-muted d-block mb-3">Calificación ponderada global sobre la escala institucional de 0 a 10</small>
+            <div style="position: relative; height: 320px;">
+              <canvas id="graficaPromediosCarreras"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <?!= include('JavaScript'); ?>
+  </body>
+</html>

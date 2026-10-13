@@ -1,0 +1,2337 @@
+﻿<script>
+    // Archivo oficial del cliente (Apps Script: JavaScript). Subir con: clasp push
+
+    var URL_LOGO_UTZMG_UI = "https://utzmg.edu.mx/wp-content/uploads/2023/08/cropped-Logotipo-UTZMG_logo.png";
+
+    function cargarLogoPaginaInicio() {
+      var img = document.getElementById("img-logo-login");
+      if (!img) return;
+      img.addEventListener("error", function onErr() {
+        img.removeEventListener("error", onErr);
+        if (typeof google !== "undefined" && google.script && google.script.run) {
+          google.script.run.withSuccessHandler(function(r) {
+            if (r && r.exito && r.data) {
+              img.src = "data:image/png;base64," + r.data;
+            }
+          }).getLogoActaBase64();
+        }
+      });
+      img.src = URL_LOGO_UTZMG_UI;
+    }
+
+    function obtenerInicialesNombrePerfil(nombre, correo) {
+      var base = (nombre || "").trim();
+      if (!base || base === "Docente" || base === "Administrador del Sistema") {
+        base = (correo || "").split("@")[0].replace(/\./g, " ");
+      }
+      var partes = base.split(/\s+/).filter(function(p) { return p.length > 0; });
+      if (partes.length === 0) return "?";
+      if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+      return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+    }
+
+    function configurarAvatarPerfil(idImg, idIniciales, correo, nombre) {
+      var img = document.getElementById(idImg);
+      var inicialesEl = document.getElementById(idIniciales);
+      if (!img && !inicialesEl) return;
+      var iniciales = obtenerInicialesNombrePerfil(nombre, correo);
+      if (inicialesEl) {
+        inicialesEl.textContent = iniciales;
+        inicialesEl.classList.remove("d-none");
+      }
+      if (img) {
+        img.classList.add("d-none");
+        img.removeAttribute("src");
+      }
+      if (!correo) return;
+
+      google.script.run
+        .withSuccessHandler(function(resp) {
+          if (!resp || !resp.url || !img) return;
+          img.onerror = function() {
+            img.classList.add("d-none");
+            if (inicialesEl) inicialesEl.classList.remove("d-none");
+          };
+          img.onload = function() {
+            img.classList.remove("d-none");
+            if (inicialesEl) inicialesEl.classList.add("d-none");
+          };
+          img.referrerPolicy = "no-referrer";
+          img.alt = "Foto de perfil de " + (nombre || correo);
+          img.src = resp.url;
+        })
+        .withFailureHandler(function() { /* iniciales */ })
+        .obtenerFotoPerfilPorCorreo(correo);
+    }
+
+    function personalizarAvataresSesion(resultado) {
+      if (!resultado || resultado.accesoDenegado) return;
+      var correo = resultado.correo || "";
+      var nombre = resultado.nombre || "";
+      if (resultado.isAdmin) {
+        var txtAdmin = document.getElementById("txt-correo-admin");
+        if (txtAdmin) txtAdmin.innerText = correo;
+        configurarAvatarPerfil("avatar-perfil-admin", "avatar-iniciales-admin", correo, nombre);
+        return;
+      }
+      if (resultado.isEstudiante || resultado.matricula) {
+        configurarAvatarPerfil("avatar-perfil-estudiante", "avatar-iniciales-estudiante", correo, nombre);
+        configurarAvatarPerfil("avatar-perfil-estudiante-card", "avatar-iniciales-estudiante-card", correo, nombre);
+        return;
+      }
+      configurarAvatarPerfil("avatar-perfil-docente", "avatar-iniciales-docente", correo, nombre);
+      configurarAvatarPerfil("avatar-perfil-docente-bienvenida", "avatar-iniciales-docente-bienvenida", correo, nombre);
+    }
+
+    function toggleGuiaUnidadesDocente() {
+      var panel = document.getElementById("guia-unidades-detalle");
+      var btn = document.getElementById("btn-toggle-guia-unidades");
+      if (!panel || !btn) return;
+      panel.classList.toggle("d-none");
+      var abierto = !panel.classList.contains("d-none");
+      btn.setAttribute("aria-expanded", abierto ? "true" : "false");
+      btn.classList.toggle("guia-abierta", abierto);
+      btn.innerHTML = abierto
+        ? '<i class="bi bi-chevron-up me-1"></i> Ocultar guía'
+        : '<i class="bi bi-lightbulb me-1"></i> Guía rápida';
+    }
+
+    document.addEventListener("DOMContentLoaded", cargarLogoPaginaInicio);
+
+    function restaurarBotonLoginPlataforma(botonLogin) {
+      if (!botonLogin) return;
+      botonLogin.disabled = false;
+      botonLogin.innerHTML = '<i class="bi bi-google me-2"></i> Ingresar a la Aplicación ➔';
+    }
+
+    function aplicarResultadoLoginPlataforma(resultado) {
+      if (resultado.accesoDenegado) return false;
+
+      var isAdmin = resultado.isAdmin;
+      var estaBloqueado = resultado.estaBloqueado;
+      var nombreReal = resultado.nombre;
+      usuarioEsAdminActual = !!isAdmin;
+
+      personalizarAvataresSesion(resultado);
+
+      if (isAdmin) {
+        document.getElementById("pantalla-login").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-sistema").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-estudiante").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-admin").style.setProperty("display", "block", "important");
+        actualizarBotonAdminVisual(estaBloqueado);
+        cargarDatosDashboard();
+      } else if (resultado.isEstudiante) {
+        document.getElementById("pantalla-login").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-sistema").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-admin").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-estudiante").style.setProperty("display", "block", "important");
+        cargarPortalEstudiante(resultado);
+      } else {
+        document.getElementById("pantalla-login").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-estudiante").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-admin").style.setProperty("display", "none", "important");
+        document.getElementById("pantalla-sistema").style.setProperty("display", "block", "important");
+
+        var contenedorNombre = document.getElementById("nombre-saludo-docente");
+        if (contenedorNombre) contenedorNombre.innerText = nombreReal;
+
+        aplicarEstadoBloqueoCaptura(estaBloqueado, false);
+        iniciarMonitoreoBloqueoCaptura();
+        iniciarProteccionControlesCaptura();
+        ejecutarCargasInicialesDocente();
+      }
+      return true;
+    }
+
+    let miGraficaInstancia = null;          // Gráfica 1: Tu original (Matrícula)
+    let miGraficaEficienciaInstancia = null; // Gráfica 2: Rendimiento Aprobados/Reprobados
+    let miGraficaPromediosInstancia = null;  // Gráfica 3: Línea de Promedios
+    let intervaloBloqueoCaptura = null;
+    let capturaBloqueadaActual = false;
+    let totalUnidadesAsignacion = 0;
+    const VALOR_SELECT_REGISTRAR_UNIDADES = "__REGISTRAR_TOTAL__";
+    let actaIntegracionHabilitada = false;
+    let logoActaCache = null;
+    let usuarioEsAdminActual = false;
+    /** estado_captura de la unidad cargada: null | TEMPORAL | DEFINITIVO */
+    let estadoCapturaUnidadActual = null;
+    /** true solo tras confirmar corrección de una unidad ya definitiva */
+    let edicionDefinitivaActiva = false;
+    let intervalProteccionCaptura = null;
+    let sincronizandoControlesCaptura = false;
+
+    function normalizarEstadoCapturaUnidad(valor) {
+      if (valor === null || valor === undefined || valor === "") return null;
+      let t = valor.toString().trim().toUpperCase();
+      if (t === "DEFINITIVO" || t === "DEFINITIVA") return "DEFINITIVO";
+      if (t === "TEMPORAL") return "TEMPORAL";
+      return null;
+    }
+
+    function inputsCapturaDebenEstarBloqueados() {
+      if (capturaBloqueadaActual) return true;
+      if (estadoCapturaUnidadActual === "DEFINITIVO" && !edicionDefinitivaActiva) return true;
+      return false;
+    }
+
+    function aplicarEstadoControlesCaptura() {
+      if (sincronizandoControlesCaptura) return;
+      sincronizandoControlesCaptura = true;
+      try {
+        const btnGuardarTemporal = document.getElementById("btn-guardar-temporal");
+        const btnGuardarDefinitivo = document.getElementById("btn-guardar-definitivo");
+        const bloqueoInputs = inputsCapturaDebenEstarBloqueados();
+        const yaDefinitivo = estadoCapturaUnidadActual === "DEFINITIVO";
+
+        if (btnGuardarTemporal) {
+          btnGuardarTemporal.disabled = capturaBloqueadaActual || yaDefinitivo;
+          btnGuardarTemporal.title = yaDefinitivo
+            ? "Esta unidad ya se guardó en definitivo. No se permiten guardados temporales."
+            : "";
+        }
+        if (btnGuardarDefinitivo) {
+          btnGuardarDefinitivo.disabled = capturaBloqueadaActual;
+          btnGuardarDefinitivo.title = yaDefinitivo && !edicionDefinitivaActiva
+            ? "Haga clic para habilitar la edición y volver a guardar en definitivo."
+            : "";
+        }
+
+        document.querySelectorAll(".input-calif").forEach(function(input) {
+          input.disabled = bloqueoInputs;
+          if (bloqueoInputs) {
+            input.setAttribute("disabled", "disabled");
+            input.classList.add("captura-solo-lectura");
+            input.setAttribute("aria-readonly", "true");
+            input.setAttribute("tabindex", "-1");
+          } else {
+            input.removeAttribute("disabled");
+            input.classList.remove("captura-solo-lectura");
+            input.removeAttribute("aria-readonly");
+            input.removeAttribute("tabindex");
+          }
+        });
+      } finally {
+        sincronizandoControlesCaptura = false;
+      }
+    }
+
+    /** Reaplica bloqueos si alguien manipula el DOM (sin MutationObserver para evitar cuelgues). */
+    function iniciarProteccionControlesCaptura() {
+      if (intervalProteccionCaptura) return;
+      intervalProteccionCaptura = setInterval(function() {
+        const pantalla = document.getElementById("pantalla-sistema");
+        if (!pantalla || getComputedStyle(pantalla).display === "none") return;
+        if (!inputsCapturaDebenEstarBloqueados()) return;
+
+        const btnTemp = document.getElementById("btn-guardar-temporal");
+        if (btnTemp && !btnTemp.disabled) aplicarEstadoControlesCaptura();
+
+        let algunSelectActivo = false;
+        document.querySelectorAll(".input-calif").forEach(function(input) {
+          if (!input.disabled) algunSelectActivo = true;
+        });
+        if (algunSelectActivo) aplicarEstadoControlesCaptura();
+      }, 2000);
+    }
+
+    function aplicarEstadoBloqueoCaptura(estaBloqueado, mostrarAvisoTransicion) {
+      capturaBloqueadaActual = estaBloqueado;
+
+      const alerta = document.getElementById("alerta-bloqueo");
+      const banner = document.getElementById("banner-bloqueo-superior");
+      if (alerta) {
+        alerta.style.setProperty("display", estaBloqueado ? "block" : "none", "important");
+      }
+      if (banner) {
+        banner.style.setProperty("display", estaBloqueado ? "block" : "none", "important");
+      }
+
+      aplicarEstadoControlesCaptura();
+
+      const btnImprimir = document.getElementById("btn-imprimir");
+      if (btnImprimir) {
+        btnImprimir.disabled = estaBloqueado;
+        btnImprimir.title = estaBloqueado ? "Descarga deshabilitada: captura cerrada" : "";
+      }
+
+      const btnAsistencia = document.getElementById("btn-asistencia");
+      if (btnAsistencia) {
+        btnAsistencia.disabled = estaBloqueado;
+        btnAsistencia.title = estaBloqueado ? "Descarga deshabilitada: captura cerrada" : "";
+      }
+
+      actualizarBotonActaIntegracion();
+
+      if (mostrarAvisoTransicion && estaBloqueado) {
+        Swal.fire({
+          icon: "warning",
+          title: "Captura cerrada",
+          text: "Control Escolar ha cerrado el periodo de captura. Solo puede consultar la información registrada.",
+          confirmButtonColor: "#842029"
+        });
+      }
+    }
+
+    function consultarEstadoBloqueoCaptura(mostrarAvisoTransicion) {
+      google.script.run.withSuccessHandler(function(estaBloqueado) {
+        const huboCambio = estaBloqueado !== capturaBloqueadaActual;
+        aplicarEstadoBloqueoCaptura(estaBloqueado, mostrarAvisoTransicion && huboCambio && estaBloqueado);
+      }).obtenerEstadoBloqueo();
+    }
+
+    function iniciarMonitoreoBloqueoCaptura() {
+      if (intervaloBloqueoCaptura) clearInterval(intervaloBloqueoCaptura);
+      intervaloBloqueoCaptura = setInterval(function() {
+        const pantallaDocente = document.getElementById("pantalla-sistema");
+        if (pantallaDocente && getComputedStyle(pantallaDocente).display !== "none") {
+          consultarEstadoBloqueoCaptura(true);
+        }
+      }, 60000);
+    }
+
+    function detenerMonitoreoBloqueoCaptura() {
+      if (intervaloBloqueoCaptura) {
+        clearInterval(intervaloBloqueoCaptura);
+        intervaloBloqueoCaptura = null;
+      }
+    }
+    
+    function iniciarSesionPlataforma() {
+      var botonLogin = document.querySelector(".btn-tinto-principal");
+      if (botonLogin) {
+        botonLogin.disabled = true;
+        botonLogin.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Entrando...';
+      }
+
+      mostrarLoader("Autenticando cuenta y verificando permisos...");
+
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          restaurarBotonLoginPlataforma(botonLogin);
+          ocultarLoader();
+
+          if (resultado.accesoDenegado) {
+            Swal.fire({
+              icon: "error",
+              title: "Acceso no autorizado",
+              text: resultado.mensaje || "Su cuenta no puede usar esta plataforma.",
+              confirmButtonColor: "#5c061c"
+            });
+            return;
+          }
+
+          aplicarResultadoLoginPlataforma(resultado);
+        })
+        .withFailureHandler(function(err) {
+          restaurarBotonLoginPlataforma(botonLogin);
+          ocultarLoader();
+          Swal.fire("Error de inicio de sesión", err.message, "error");
+        })
+        .verificarPermisosYBloqueo();
+    }
+
+    var portalEstudianteDatos = null;
+    /** Admin: matrícula en vista previa; null = alumno real con su sesión */
+    var vistaPreviaPortalEstudianteMatricula = null;
+
+    function aplicarEncabezadoPortalEstudianteDesdeRespuesta(resp) {
+      if (!resp || !resp.alumno) return;
+      const a = resp.alumno;
+      const lblNom = document.getElementById("lbl-est-nombre");
+      const lblMat = document.getElementById("lbl-est-matricula");
+      const lblCar = document.getElementById("lbl-est-carrera");
+      const lblGr = document.getElementById("lbl-est-grupo");
+      const txtCorreo = document.getElementById("txt-correo-estudiante");
+      if (lblNom) lblNom.innerText = a.alumno || "Estudiante";
+      if (lblMat) lblMat.innerText = a.matricula || "—";
+      if (lblCar) lblCar.innerText = a.carrera || resp.nombreCarrera || "—";
+      if (lblGr) lblGr.innerText = a.grupo_completo || "—";
+      if (txtCorreo) txtCorreo.innerText = a.correo_institucional || "—";
+    }
+
+    function mostrarBannerVistaPreviaAdmin(matricula, nombre) {
+      const banner = document.getElementById("banner-vista-previa-estudiante-admin");
+      const lblMat = document.getElementById("lbl-vista-previa-matricula");
+      const lblNom = document.getElementById("lbl-vista-previa-nombre");
+      if (lblMat) lblMat.innerText = matricula || "—";
+      if (lblNom) lblNom.innerText = nombre || "—";
+      if (banner) banner.classList.remove("d-none");
+    }
+
+    function ocultarBannerVistaPreviaAdmin() {
+      const banner = document.getElementById("banner-vista-previa-estudiante-admin");
+      if (banner) banner.classList.add("d-none");
+    }
+
+    function cerrarVistaPreviaPortalEstudianteAdmin() {
+      vistaPreviaPortalEstudianteMatricula = null;
+      portalEstudianteDatos = null;
+      ocultarBannerVistaPreviaAdmin();
+      cerrarDetalleMateriaEstudiante();
+      document.getElementById("pantalla-estudiante").style.setProperty("display", "none", "important");
+      document.getElementById("pantalla-admin").style.setProperty("display", "block", "important");
+    }
+
+    function abrirVistaPreviaPortalEstudianteAdmin(matricula) {
+      if (!usuarioEsAdminActual) {
+        Swal.fire("Acceso denegado", "Solo administradores pueden usar la vista previa.", "warning");
+        return;
+      }
+      matricula = (matricula || "").toString().trim();
+      if (!matricula) return;
+      vistaPreviaPortalEstudianteMatricula = matricula;
+      document.getElementById("pantalla-admin").style.setProperty("display", "none", "important");
+      document.getElementById("pantalla-estudiante").style.setProperty("display", "block", "important");
+      cerrarDetalleMateriaEstudiante();
+      mostrarLoader("Cargando portal del alumno…");
+      google.script.run
+        .withSuccessHandler(function(resp) {
+          ocultarLoader();
+          if (!resp || !resp.exito) {
+            Swal.fire("Vista previa", "No se recibieron datos del portal.", "warning");
+            cerrarVistaPreviaPortalEstudianteAdmin();
+            return;
+          }
+          portalEstudianteDatos = resp;
+          aplicarEncabezadoPortalEstudianteDesdeRespuesta(resp);
+          mostrarBannerVistaPreviaAdmin(resp.alumno.matricula, resp.alumno.alumno);
+          const lblCuat = document.getElementById("lbl-est-cuatrimestre");
+          if (lblCuat && resp.cuatrimestre) lblCuat.innerText = resp.cuatrimestre;
+          renderResumenFinalEstudiante(resp);
+          renderListaMateriasEstudiante(resp);
+          document.getElementById("pantalla-estudiante").scrollIntoView({ behavior: "smooth", block: "start" });
+        })
+        .withFailureHandler(function(err) {
+          ocultarLoader();
+          Swal.fire("Vista previa", err.message || String(err), "error");
+          cerrarVistaPreviaPortalEstudianteAdmin();
+        })
+        .obtenerCalificacionesPortalEstudianteVistaAdmin(matricula);
+    }
+
+    function abrirVistaPreviaAlumnoDemoAdmin() {
+      abrirVistaPreviaPortalEstudianteAdmin("0000000000");
+    }
+
+    function buscarAlumnosVistaAdmin() {
+      const inp = document.getElementById("input-buscar-alumno-vista");
+      const cont = document.getElementById("lista-resultados-vista-alumno");
+      if (!inp || !cont) return;
+      const termino = inp.value.trim();
+      if (termino.length < 2) {
+        Swal.fire("Buscar alumno", "Escriba al menos 2 caracteres.", "info");
+        return;
+      }
+      cont.classList.add("d-none");
+      cont.innerHTML = "";
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const lista = (data && data.resultados) || [];
+          if (lista.length === 0) {
+            cont.innerHTML = '<div class="list-group-item small text-muted">Sin coincidencias.</div>';
+            cont.classList.remove("d-none");
+            return;
+          }
+          lista.forEach(function(item) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "list-group-item list-group-item-action small text-start";
+            const demo = item.esDemo ? " · DEMO" : "";
+            btn.innerHTML =
+              "<strong class=\"font-monospace\">" + escapeHtmlEstudiante(item.matricula) + "</strong> — " +
+              escapeHtmlEstudiante(item.alumno) +
+              "<br><span class=\"text-muted\">" + escapeHtmlEstudiante(item.grupo_completo) + demo + "</span>";
+            btn.addEventListener("click", function() {
+              abrirVistaPreviaPortalEstudianteAdmin(item.matricula);
+            });
+            cont.appendChild(btn);
+          });
+          cont.classList.remove("d-none");
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire("Buscar alumno", err.message, "error");
+        })
+        .buscarEstudiantesParaVistaAdmin(termino);
+    }
+
+    function publicarAlumnoDemoPortalAdmin() {
+      Swal.fire({
+        title: "¿Publicar alumno demo?",
+        html: "Se creará o actualizará <strong>solo</strong> la matrícula <code>0000000000</code> con correo " +
+          "<code>portal.demo@utzmg.edu.mx</code>. No se modifican otros alumnos.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#5c061c",
+        confirmButtonText: "Publicar"
+      }).then(function(r) {
+        if (!r.isConfirmed) return;
+        mostrarLoader("Publicando alumno demo…");
+        google.script.run
+          .withSuccessHandler(function(msg) {
+            ocultarLoader();
+            Swal.fire("Listo", msg, "success");
+          })
+          .withFailureHandler(function(err) {
+            ocultarLoader();
+            Swal.fire("Error", err.message, "error");
+          })
+          .publicarEstudianteDemoPortalEnFirebase();
+      });
+    }
+
+    function cargarPortalEstudiante(perfilLogin) {
+      vistaPreviaPortalEstudianteMatricula = null;
+      ocultarBannerVistaPreviaAdmin();
+      if (perfilLogin) {
+        const lblNom = document.getElementById("lbl-est-nombre");
+        const lblMat = document.getElementById("lbl-est-matricula");
+        const lblCar = document.getElementById("lbl-est-carrera");
+        const lblGr = document.getElementById("lbl-est-grupo");
+        const txtCorreo = document.getElementById("txt-correo-estudiante");
+        if (lblNom) lblNom.innerText = perfilLogin.nombre || "Estudiante";
+        if (lblMat) lblMat.innerText = perfilLogin.matricula || "—";
+        if (lblCar) lblCar.innerText = perfilLogin.carrera || "—";
+        if (lblGr) lblGr.innerText = perfilLogin.grupoCompleto || "—";
+        if (txtCorreo) txtCorreo.innerText = perfilLogin.correo || "";
+        personalizarAvataresSesion(perfilLogin);
+      }
+      cerrarDetalleMateriaEstudiante();
+      mostrarLoader("Cargando sus calificaciones...");
+      google.script.run
+        .withSuccessHandler(function(resp) {
+          ocultarLoader();
+          portalEstudianteDatos = resp;
+          const lblCuat = document.getElementById("lbl-est-cuatrimestre");
+          if (lblCuat && resp.cuatrimestre) lblCuat.innerText = resp.cuatrimestre;
+          if (resp.nombreCarrera) {
+            const lblCar2 = document.getElementById("lbl-est-carrera");
+            if (lblCar2) lblCar2.innerText = resp.nombreCarrera;
+          }
+          renderResumenFinalEstudiante(resp);
+          renderListaMateriasEstudiante(resp);
+        })
+        .withFailureHandler(function(err) {
+          ocultarLoader();
+          Swal.fire("No se pudieron cargar las calificaciones", err.message, "error");
+        })
+        .obtenerCalificacionesPortalEstudiante();
+    }
+
+    function renderResumenFinalEstudiante(resp) {
+      const rf = resp.resumenFinal || {};
+      const bloquePend = document.getElementById("estado-promedio-pendiente-est");
+      const bloqueListo = document.getElementById("estado-promedio-listo-est");
+      const txtPend = document.getElementById("txt-promedio-pendiente-est");
+      const lblNum = document.getElementById("lbl-est-promedio-final-num");
+      const lblAlfa = document.getElementById("lbl-est-promedio-final-alfa");
+      const badge = document.getElementById("badge-est-estatus-global");
+
+      if (rf.visible) {
+        if (bloquePend) bloquePend.classList.add("d-none");
+        if (bloqueListo) bloqueListo.classList.remove("d-none");
+        if (lblNum) lblNum.innerText = rf.promedioFinalNumerico || "—";
+        if (lblAlfa) lblAlfa.innerText = rf.promedioFinalAlfabetico ? "(" + rf.promedioFinalAlfabetico + ")" : "";
+        if (badge) {
+          const noAprob = (rf.estatusGlobal || "").toLowerCase().indexOf("no aprob") >= 0;
+          badge.innerText = rf.estatusGlobal || "—";
+          badge.className = "badge fs-6 p-2 " + (noAprob ? "bg-danger" : "bg-success");
+        }
+      } else {
+        if (bloqueListo) bloqueListo.classList.add("d-none");
+        if (bloquePend) bloquePend.classList.remove("d-none");
+        if (txtPend) {
+          txtPend.innerText = rf.mensajePendiente ||
+            "Su promedio y estatus del cuatrimestre aún no se pueden determinar.";
+        }
+      }
+    }
+
+    function renderListaMateriasEstudiante(resp) {
+      const tbody = document.getElementById("lista-materias-estudiante");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      const materias = resp.materias || [];
+      if (materias.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay materias asignadas a su grupo en el cuatrimestre activo. Si cree que es un error, reporte el problema a <a href="mailto:direccionacademica@utzmg.edu.mx">direccionacademica@utzmg.edu.mx</a>.</td></tr>';
+        return;
+      }
+      materias.forEach(function(m, idx) {
+        const tr = document.createElement("tr");
+        tr.className = "fila-materia-estudiante";
+        tr.style.cursor = "pointer";
+        tr.setAttribute("data-indice-materia", String(idx));
+        const totalU = m.totalUnidades || 0;
+        const defs = m.unidadesDefinitivas || 0;
+        const temps = contarUnidadesTemporalesMateria(m);
+        const progDef = totalU > 0 ? (defs + " / " + totalU) : (defs ? defs + " / —" : "0 / —");
+        const progTemp = totalU > 0 ? (temps + " / " + totalU) : (temps ? temps + " / —" : "0 / —");
+        const docente = m.nombreDocente || "Por confirmar";
+        tr.innerHTML =
+          "<td class=\"fw-semibold\">" + escapeHtmlEstudiante(m.materia) + "</td>" +
+          "<td class=\"small\">" + escapeHtmlEstudiante(docente) + "</td>" +
+          "<td class=\"small\">" + escapeHtmlEstudiante(m.nombreCarrera || resp.nombreCarrera || "—") + "</td>" +
+          "<td class=\"text-center font-monospace\"><span class=\"badge bg-success-subtle text-success border border-success-subtle\">" + escapeHtmlEstudiante(progDef) + "</span></td>" +
+          "<td class=\"text-center font-monospace\"><span class=\"badge bg-warning-subtle text-dark border border-warning-subtle\">" + escapeHtmlEstudiante(progTemp) + "</span></td>" +
+          "<td class=\"text-center\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\">Ver unidades</button></td>";
+        tr.addEventListener("click", function(ev) {
+          if (ev.target && ev.target.tagName === "BUTTON") ev.preventDefault();
+          abrirDetalleMateriaEstudiante(idx);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function abrirDetalleMateriaEstudiante(indice) {
+      if (!portalEstudianteDatos || !portalEstudianteDatos.materias) return;
+      const m = portalEstudianteDatos.materias[indice];
+      if (!m) return;
+      document.querySelectorAll(".fila-materia-estudiante").forEach(function(tr) {
+        tr.classList.remove("table-active");
+      });
+      const fila = document.querySelector('.fila-materia-estudiante[data-indice-materia="' + indice + '"]');
+      if (fila) fila.classList.add("table-active");
+
+      const panel = document.getElementById("panel-detalle-materia-estudiante");
+      const titulo = document.getElementById("titulo-detalle-materia-est");
+      const tbodyU = document.getElementById("tabla-unidades-materia-estudiante");
+      const bloqueProm = document.getElementById("bloque-promedio-materia-est");
+      if (titulo) titulo.innerText = m.materia;
+      const lblDoc = document.getElementById("lbl-docente-materia-est");
+      if (lblDoc) lblDoc.innerText = m.nombreDocente || "Por confirmar";
+      const lblAvance = document.getElementById("lbl-avance-unidades-materia-est");
+      if (lblAvance) {
+        const totalU = m.totalUnidades || 0;
+        const defs = m.unidadesDefinitivas || 0;
+        const temps = contarUnidadesTemporalesMateria(m);
+        const suf = totalU > 0 ? " de " + totalU : "";
+        lblAvance.innerHTML =
+          "<span class=\"badge bg-success-subtle text-success border border-success-subtle me-1\">Definitivas: " + defs + suf + "</span>" +
+          "<span class=\"badge bg-warning-subtle text-dark border border-warning-subtle\">Temporales: " + temps + suf + "</span>";
+      }
+      if (panel) panel.classList.remove("d-none");
+      if (!tbodyU) return;
+      tbodyU.innerHTML = "";
+      if (!m.unidades || m.unidades.length === 0) {
+        tbodyU.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Aún no hay calificaciones capturadas para esta materia.</td></tr>';
+      }
+      (m.unidades || []).forEach(function(u) {
+        const esDef = (u.estadoCaptura || "").toUpperCase() === "DEFINITIVO";
+        const badge = esDef
+          ? '<span class="badge bg-success">Definitivo</span>'
+          : (u.calificacion
+            ? '<span class="badge bg-warning text-dark">Temporal</span>'
+            : '<span class="badge bg-secondary">Sin captura</span>');
+        const num = u.calificacion ? (u.calificacionNumerica || u.calificacion) : "—";
+        const alfa = u.calificacion ? (u.calificacionAlfabetica || "—") : "—";
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td><span class=\"font-monospace fw-bold\">" + escapeHtmlEstudiante(u.unidad) + "</span></td>" +
+          "<td class=\"text-center fw-bold\">" + escapeHtmlEstudiante(num) + "</td>" +
+          "<td class=\"text-center\">" + escapeHtmlEstudiante(alfa) + "</td>" +
+          "<td class=\"text-center\">" + badge + "</td>";
+        tbodyU.appendChild(tr);
+      });
+
+      const lblNum = document.getElementById("lbl-promedio-materia-num");
+      const lblAlfa = document.getElementById("lbl-promedio-materia-alfa");
+      const badgeEst = document.getElementById("badge-estatus-materia");
+      const msgPend = document.getElementById("msg-promedio-materia-pendiente");
+      if (bloqueProm) bloqueProm.classList.remove("d-none");
+      if (m.puedeVerPromedioMateria && m.promedioIntegracion) {
+        if (lblNum) lblNum.innerText = m.promedioIntegracion.numerico || "—";
+        if (lblAlfa) lblAlfa.innerText = m.promedioIntegracion.alfabetico ? "(" + m.promedioIntegracion.alfabetico + ")" : "";
+        if (badgeEst) {
+          const noAprob = (m.estatusMateria || "").toLowerCase().indexOf("no aprob") >= 0;
+          badgeEst.innerText = m.estatusMateria || "—";
+          badgeEst.className = "badge fs-6 p-2 " + (noAprob ? "bg-danger" : "bg-success");
+        }
+        if (msgPend) msgPend.innerText = "";
+      } else {
+        if (lblNum) lblNum.innerText = "—";
+        if (lblAlfa) lblAlfa.innerText = "";
+        if (badgeEst) {
+          badgeEst.innerText = "Pendiente";
+          badgeEst.className = "badge fs-6 p-2 bg-secondary";
+        }
+        if (msgPend) {
+          msgPend.innerText = construirMensajePromedioMateriaPendiente(m);
+        }
+      }
+      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function cerrarDetalleMateriaEstudiante() {
+      const panel = document.getElementById("panel-detalle-materia-estudiante");
+      if (panel) panel.classList.add("d-none");
+      document.querySelectorAll(".fila-materia-estudiante").forEach(function(tr) {
+        tr.classList.remove("table-active");
+      });
+    }
+
+    function construirMensajePromedioMateriaPendiente(m) {
+      if (!m) return "";
+      const unidades = m.unidades || [];
+      const hayAlgunaNota = unidades.some(function(u) {
+        return u && u.calificacion && u.calificacion.toString().trim() !== "";
+      });
+      const total = m.totalUnidades || 0;
+      const defs = m.unidadesDefinitivas || 0;
+
+      if (!hayAlgunaNota) {
+        if (total === 0) {
+          return "Aún no hay calificaciones. El docente debe configurar las unidades de la materia y comenzar la captura; después podrá ver aquí el promedio de integración cuando todo esté en definitivo y exista acta.";
+        }
+        return "Aún no hay calificaciones capturadas para esta materia. El promedio de integración se mostrará cuando el docente guarde todas las unidades como definitivas y genere el acta de integración.";
+      }
+
+      if (!m.todasUnidadesDefinitivas) {
+        const temps = contarUnidadesTemporalesMateria(m);
+        let progDef = total > 0 ? (defs + " de " + total + " en definitivo") : "faltan unidades en definitivo";
+        let progTemp = temps > 0
+          ? (temps + " de " + (total || temps) + " con calificación temporal (puede cambiar hasta que el docente guarde en definitivo). ")
+          : "";
+        return progTemp +
+          "El promedio de integración se publicará cuando todas las unidades estén en definitivo (" + progDef + ") y el docente haya generado el acta de integración.";
+      }
+
+      if (!m.actaIntegracionPublicada) {
+        return "Ya están todas las unidades en definitivo. El promedio se mostrará en cuanto el docente genere el acta de integración de la materia.";
+      }
+
+      return "";
+    }
+
+    function contarUnidadesTemporalesMateria(m) {
+      if (!m) return 0;
+      if (m.unidadesTemporales != null && m.unidadesTemporales !== undefined) return m.unidadesTemporales;
+      return (m.unidades || []).filter(function(u) {
+        if (!u || !u.calificacion || u.calificacion.toString().trim() === "") return false;
+        return (u.estadoCaptura || "").toUpperCase() !== "DEFINITIVO";
+      }).length;
+    }
+
+    function escapeHtmlEstudiante(texto) {
+      if (texto === null || texto === undefined) return "";
+      return texto.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+    
+      function ejecutarCargasInicialesDocente() {
+        google.script.run.withSuccessHandler(function(docente) {
+          document.getElementById("txt-correo").innerText = docente.correo;
+          document.getElementById("txt-correo").setAttribute("data-nombre-profesor", docente.nombre);
+          personalizarAvataresSesion({ correo: docente.correo, nombre: docente.nombre });
+        }).getDatosDocente();
+    
+        google.script.run.withSuccessHandler(function(asignaciones) {
+          const selectA = document.getElementById("select-asignacion");
+          selectA.innerHTML = '<option value="">-- Selecciona Grupo y Asignatura --</option>';
+          if(asignaciones.length === 0) {
+            selectA.innerHTML = '<option value="">❌ Tu correo no tiene materias vinculadas</option>';
+            ocultarLoader();
+            return;
+          }
+          asignaciones.forEach(asig => {
+            let opt = document.createElement("option");
+            opt.value = asig.grupo + "|" + asig.materia;
+            const etiquetaGrupo = asig.grupoMostrar || asig.grupo;
+            opt.innerText = `Grupo: ${etiquetaGrupo} ➔ ${asig.materia}`;
+            selectA.appendChild(opt);
+          });
+          ocultarLoader();
+        }).getAsignacionesDocente();
+      }
+    
+      function cerrarSesionPlataforma() {
+        Swal.fire({
+          title: '¿Estás seguro?',
+          text: "Cerrarás tu sesión en el sistema de captura",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#5c061c',
+          cancelButtonColor: '#6c757d',
+          confirmButtonText: 'Sí, salir',
+          cancelButtonText: 'Cancelar',
+          background: '#ffffff',
+          customClass: { popup: 'border-start border-tinto border-4' }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            usuarioEsAdminActual = false;
+            detenerMonitoreoBloqueoCaptura();
+            if (intervalProteccionCaptura) {
+              clearInterval(intervalProteccionCaptura);
+              intervalProteccionCaptura = null;
+            }
+            document.getElementById("select-asignacion").innerHTML = '<option value="">-- Selecciona Grupo y Asignatura --</option>';
+            document.getElementById("select-periodo").innerHTML = '<option value="">-- Selecciona unidad --</option>';
+            document.getElementById("tabla-alumnos").innerHTML = '';
+            document.getElementById("seccion-captura").style.setProperty("display", "none", "important");
+            
+            document.getElementById("pantalla-sistema").style.setProperty("display", "none", "important");
+            document.getElementById("pantalla-admin").style.setProperty("display", "none", "important");
+            document.getElementById("pantalla-estudiante").style.setProperty("display", "none", "important");
+            document.getElementById("pantalla-login").style.setProperty("display", "flex", "important");
+          }
+        });
+      }
+    
+      document.getElementById("select-asignacion").addEventListener("change", alSeleccionarAsignacion);
+      document.getElementById("select-periodo").addEventListener("change", evaluarCambioFiltros);
+
+      function obtenerGrupoMateriaDesdeSelect() {
+        const asignacionVal = document.getElementById("select-asignacion").value;
+        if (!asignacionVal || !asignacionVal.includes("|")) return null;
+        const partes = asignacionVal.split("|");
+        return { grupo: partes[0].trim(), materia: partes[1].trim() };
+      }
+
+      function prepararSelectRegistroPendienteUnidades() {
+        const selectP = document.getElementById("select-periodo");
+        selectP.innerHTML =
+          '<option value="">-- Elija una opción --</option>' +
+          '<option value="' + VALOR_SELECT_REGISTRAR_UNIDADES + '">-- Registre el total de unidades --</option>';
+        selectP.disabled = false;
+        selectP.value = "";
+        totalUnidadesAsignacion = 0;
+        document.getElementById("panel-config-unidades").style.display = "none";
+      }
+
+      function aplicarPeriodosAlSelector(respuestaPeriodos) {
+        const selectP = document.getElementById("select-periodo");
+        selectP.innerHTML = '<option value="">-- Selecciona unidad --</option>';
+        if (!respuestaPeriodos || !respuestaPeriodos.configurado) {
+          prepararSelectRegistroPendienteUnidades();
+          return;
+        }
+        totalUnidadesAsignacion = respuestaPeriodos.totalUnidades;
+        document.getElementById("lbl-total-unidades").innerText =
+          "Total: " + totalUnidadesAsignacion + " unidades (U1 a U" + totalUnidadesAsignacion + ")";
+        document.getElementById("panel-config-unidades").style.display = "block";
+        respuestaPeriodos.periodos.forEach(function(p) {
+          let opt = document.createElement("option");
+          opt.value = p.nombre.toString().trim();
+          opt.innerText = p.nombre + " — Captura abierta";
+          selectP.appendChild(opt);
+        });
+        selectP.disabled = false;
+        actualizarEstadoActaIntegracion();
+      }
+
+      function solicitarConfiguracionUnidades(grupo, materia, esEdicion) {
+        Swal.fire({
+          title: esEdicion ? "Corregir el total de unidades" : "Registrar el total de unidades de la materia",
+          html: `
+            <div class="alert alert-success text-start py-2 px-3 small mb-3 border-0">
+              <strong>Aquí solo debes indicar cuántas unidades de evaluación</strong> tiene la materia en el cuatrimestre (según tu Programa de Asignatura).
+              Es un solo registro por materia. <strong>No</strong> captures calificaciones en este paso.
+            </div>
+            <p class="text-start small text-muted mb-3">
+              Ejemplo: si su materia evalúa en <strong>5 unidades</strong>, escriba <strong>5</strong>.
+              Después, en el paso <strong>«Selecciona la Unidad»</strong>, elegirá U1, U2… <em>una por una</em> para registrar las calificaciones de cada unidad.
+            </p>
+            <label class="form-label fw-bold text-start w-100">Total de unidades del cuatrimestre</label>
+            <input id="swal-unidades" type="number" min="1" max="12" class="form-control form-control-lg text-center" placeholder="Ej. 5" value="${totalUnidadesAsignacion || ""}" />
+            <p id="swal-unidades-resumen" class="text-start small text-muted mt-2 mb-0"></p>
+          `,
+          icon: "info",
+          showCancelButton: true,
+          confirmButtonColor: "#0f5132",
+          cancelButtonText: "Cancelar",
+          confirmButtonText: esEdicion ? "Actualizar total" : "Registrar total",
+          didOpen: function() {
+            const inp = document.getElementById("swal-unidades");
+            function actualizarResumenUnidadesDocente() {
+              const resumen = document.getElementById("swal-unidades-resumen");
+              if (!resumen || !inp) return;
+              const v = parseInt(inp.value, 10);
+              if (isNaN(v) || v < 1) {
+                resumen.innerText = "";
+                resumen.style.display = "none";
+                return;
+              }
+              resumen.style.display = "block";
+              if (v === 1) {
+                resumen.innerText = "Quedará habilitada 1 unidad para captura: U1 (unidad 1).";
+                return;
+              }
+              resumen.innerText =
+                "Quedarán habilitadas " + v + " unidades para captura: de la U1 (unidad 1) a la U" + v + " (unidad " + v + ").";
+            }
+            if (inp) {
+              inp.addEventListener("input", actualizarResumenUnidadesDocente);
+              actualizarResumenUnidadesDocente();
+            }
+          },
+          focusConfirm: false,
+          preConfirm: function() {
+            const val = parseInt(document.getElementById("swal-unidades").value, 10);
+            if (isNaN(val) || val < 1 || val > 12) {
+              Swal.showValidationMessage("Ingrese un número entero entre 1 y 12.");
+              return false;
+            }
+            return val;
+          }
+        }).then(function(result) {
+          if (!result.isConfirmed) {
+            prepararSelectRegistroPendienteUnidades();
+            return;
+          }
+          mostrarLoader("Guardando configuración de unidades...");
+          google.script.run
+            .withSuccessHandler(function(respuestaPeriodos) {
+              ocultarLoader();
+              aplicarPeriodosAlSelector(respuestaPeriodos);
+              Swal.fire({
+                title: "Total registrado",
+                html: "Esta materia tiene <strong>" + respuestaPeriodos.totalUnidades + " unidades</strong> (U1 a U" + respuestaPeriodos.totalUnidades + "). " +
+                  "Ahora seleccione en el <strong>paso 2</strong> la unidad que desea capturar (U1, U2, etc.).",
+                icon: "success"
+              });
+            })
+            .withFailureHandler(function(err) {
+              ocultarLoader();
+              Swal.fire("No se pudo guardar", err.message, "error");
+            })
+            .guardarConfigUnidadesAsignacion(grupo, materia, result.value);
+        });
+      }
+
+      function solicitarEdicionNumeroUnidades() {
+        const datos = obtenerGrupoMateriaDesdeSelect();
+        if (!datos) {
+          Swal.fire("Atención", "Seleccione primero Grupo y Materia.", "warning");
+          return;
+        }
+        solicitarConfiguracionUnidades(datos.grupo, datos.materia, true);
+      }
+
+      function alSeleccionarAsignacion() {
+        document.getElementById("select-periodo").innerHTML = '<option value="">-- Cargando unidades... --</option>';
+        document.getElementById("select-periodo").disabled = true;
+        document.getElementById("seccion-captura").style.setProperty("display", "none", "important");
+        actaIntegracionHabilitada = false;
+        actualizarBotonActaIntegracion();
+
+        const datos = obtenerGrupoMateriaDesdeSelect();
+        if (!datos) {
+          document.getElementById("select-periodo").innerHTML = '<option value="">-- Primero elija Grupo y Materia --</option>';
+          document.getElementById("panel-config-unidades").style.display = "none";
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function(cfg) {
+            if (!cfg) {
+              prepararSelectRegistroPendienteUnidades();
+              solicitarConfiguracionUnidades(datos.grupo, datos.materia, false);
+              return;
+            }
+            google.script.run.withSuccessHandler(function(respuestaPeriodos) {
+              aplicarPeriodosAlSelector(respuestaPeriodos);
+            }).getPeriodosPorAsignacion(datos.grupo, datos.materia);
+          })
+          .getConfigUnidadesAsignacion(datos.grupo, datos.materia);
+      }
+
+      function actualizarBotonActaIntegracion() {
+        const btn = document.getElementById("btn-acta-integracion");
+        if (btn) {
+          btn.disabled = capturaBloqueadaActual || !actaIntegracionHabilitada;
+        }
+      }
+
+      function actualizarEstadoActaIntegracion() {
+        const datos = obtenerGrupoMateriaDesdeSelect();
+        const msg = document.getElementById("msg-acta-integracion");
+        if (!datos) {
+          actaIntegracionHabilitada = false;
+          if (msg) msg.innerText = "";
+          actualizarBotonActaIntegracion();
+          return;
+        }
+        google.script.run.withSuccessHandler(function(estado) {
+          actaIntegracionHabilitada = estado.habilitada;
+          if (msg) msg.innerText = estado.motivo || "";
+          actualizarBotonActaIntegracion();
+        }).evaluarEstadoActaIntegracion(datos.grupo, datos.materia);
+      }
+    
+      function mostrarLoader(texto) {
+        document.getElementById("loader-texto").innerText = texto;
+        document.getElementById("loader").style.setProperty("display", "block", "important");
+      }
+    
+      function ocultarLoader() {
+        document.getElementById("loader").style.setProperty("display", "none", "important");
+      }
+    
+      // --- CORREGIDA EN ESTA SECCIÓN ---
+      function evaluarCambioFiltros() {
+        const asignacionVal = document.getElementById("select-asignacion").value;
+        const periodoVal = document.getElementById("select-periodo").value;
+
+        if (periodoVal === VALOR_SELECT_REGISTRAR_UNIDADES) {
+          const datosReg = obtenerGrupoMateriaDesdeSelect();
+          document.getElementById("select-periodo").value = "";
+          if (datosReg) {
+            solicitarConfiguracionUnidades(datosReg.grupo, datosReg.materia, false);
+          }
+          return;
+        }
+        
+        if(asignacionVal && periodoVal) {
+          const datosAsig = asignacionVal.split("|");
+          const grupo = datosAsig[0];
+          const materia = datosAsig[1];
+
+          estadoCapturaUnidadActual = null;
+          edicionDefinitivaActiva = false;
+          aplicarEstadoControlesCaptura();
+          
+          mostrarLoader(`Descargando alumnos y calificaciones de la unidad ${periodoVal}...`);
+          const timeoutLoader = setTimeout(function() {
+            ocultarLoader();
+            Swal.fire(
+              "Carga lenta",
+              "Si la lista no aparece, publique la última versión de la implementación y recargue con Ctrl+F5.",
+              "warning"
+            );
+          }, 75000);
+
+          function finalizarCargaUnidad() {
+            clearTimeout(timeoutLoader);
+            ocultarLoader();
+          }
+
+          function pintarListaCaptura(alumnos, notasGuardadas, estadoCaptura) {
+            estadoCapturaUnidadActual = normalizarEstadoCapturaUnidad(estadoCaptura);
+            edicionDefinitivaActiva = false;
+            dibujarTablaAlumnos(alumnos, grupo, notasGuardadas || {});
+            actualizarIndicadorEstadoUnidad({ estado_captura: estadoCapturaUnidadActual });
+            aplicarEstadoBloqueoCaptura(capturaBloqueadaActual, false);
+          }
+
+          google.script.run.withSuccessHandler(function(alumnos) {
+            google.script.run.withSuccessHandler(function(respuestaUnidad) {
+              try {
+                const notasGuardadas = (respuestaUnidad && respuestaUnidad.calificaciones)
+                  ? respuestaUnidad.calificaciones
+                  : (respuestaUnidad || {});
+                pintarListaCaptura(alumnos, notasGuardadas, respuestaUnidad ? respuestaUnidad.estado_captura : null);
+              } catch (errCliente) {
+                console.error(errCliente);
+                Swal.fire("Error", errCliente.message || "No se pudo mostrar la lista de alumnos.", "error");
+              } finally {
+                finalizarCargaUnidad();
+              }
+            }).withFailureHandler(function() {
+              google.script.run.withSuccessHandler(function(notasLegacy) {
+                try {
+                  google.script.run.withSuccessHandler(function(meta) {
+                    try {
+                      pintarListaCaptura(alumnos, notasLegacy, meta ? meta.estado_captura : null);
+                    } finally {
+                      finalizarCargaUnidad();
+                    }
+                  }).withFailureHandler(function() {
+                    try {
+                      pintarListaCaptura(alumnos, notasLegacy, null);
+                    } finally {
+                      finalizarCargaUnidad();
+                    }
+                  }).getEstadoUnidadCaptura(grupo, materia, periodoVal);
+                } catch (e2) {
+                  finalizarCargaUnidad();
+                }
+              }).withFailureHandler(function(errLegacy) {
+                finalizarCargaUnidad();
+                Swal.fire("Error", errLegacy.message || "No se pudieron cargar las calificaciones.", "error");
+              }).obtenerCalificacionesExistentes(grupo, materia, periodoVal);
+            }).obtenerCalificacionesExistentesParaVista(grupo, materia, periodoVal);
+          }).withFailureHandler(function(err) {
+            finalizarCargaUnidad();
+            Swal.fire("Error", err.message || "No se pudieron cargar los alumnos.", "error");
+          }).getAlumnosPorGrupo(grupo);
+        } else {
+          estadoCapturaUnidadActual = null;
+          edicionDefinitivaActiva = false;
+          aplicarEstadoControlesCaptura();
+          document.getElementById("seccion-captura").style.setProperty("display", "none", "important");
+        }
+      }
+    
+      function dibujarTablaAlumnos(alumnos, grupo, McCaptura = {}) {
+        const tbody = document.getElementById("tabla-alumnos");
+        tbody.innerHTML = "";
+        
+        if(alumnos.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger fw-bold">No hay alumnos registrados en este grupo.</td></tr>';
+          document.getElementById("seccion-captura").style.setProperty("display", "block", "important");
+          return;
+        }
+    
+        let grado = null;
+        if (alumnos.length && alumnos[0].grado_actual != null && !isNaN(parseInt(alumnos[0].grado_actual, 10))) {
+          grado = parseInt(alumnos[0].grado_actual, 10);
+        } else {
+          const m = grupo.match(/^(\d{1,2})/);
+          grado = m ? parseInt(m[1], 10) : 8;
+        }
+        const modeloNuevo = grado >= 1 && grado <= 7;
+        const lblModelo = document.getElementById("lbl-modelo-evaluacion");
+        if (lblModelo) {
+          lblModelo.innerText = modeloNuevo
+            ? "Modelo nuevo (1.°–7.°): registre la calificación numérica (con decimales). La escala alfabética solo aparece en el acta."
+            : "Modelo anterior (8.°+): registre 8, 9, 10 o NA. La equivalencia alfabética solo aparece en el acta.";
+          lblModelo.style.display = "block";
+        }
+
+        alumnos.forEach((al, index) => {
+          let valorNotaRaw = McCaptura[al.matricula] !== undefined ? McCaptura[al.matricula].toString().trim() : "";
+          let opcionesHtml = '<option value="">-- Nota --</option>';
+          let valorNotaNormalizado = valorNotaRaw.toUpperCase();
+
+          if (modeloNuevo) {
+            let sel6 =
+              valorNotaRaw === "6" ||
+              valorNotaRaw === "6.0" ||
+              valorNotaNormalizado === "NA";
+            opcionesHtml += `<option value="6" ${sel6 ? "selected" : ""}>6</option>`;
+
+            let valorNotaNormalizadoNum = !isNaN(parseFloat(valorNotaRaw)) ? parseFloat(valorNotaRaw).toFixed(1) : "";
+            for (let v = 7.0; v <= 10.0; v += 0.1) {
+              let strVal = v.toFixed(1);
+              let strValValue = strVal === "10.0" ? "10" : strVal;
+              let textoMostrar = strValValue === "10" ? "10" : strVal;
+
+              let seleccionado =
+                valorNotaRaw === strValValue ||
+                valorNotaNormalizadoNum === strVal ||
+                (strValValue === "10" && valorNotaRaw === "10.0");
+              opcionesHtml += `<option value="${strValValue}" ${seleccionado ? "selected" : ""}>${textoMostrar}</option>`;
+            }
+          } else {
+            ["8", "9", "10", "NA"].forEach(function(op) {
+              let sel = (valorNotaRaw === op || valorNotaNormalizado === op) ? "selected" : "";
+              let texto = op === "10" ? "10" : op;
+              opcionesHtml += `<option value="${op}" ${sel}>${texto}</option>`;
+            });
+          }
+    
+          let estiloReprobado = "";
+          let notaNum = parseFloat(valorNotaRaw);
+          if (
+            valorNotaRaw === "6" ||
+            valorNotaRaw === "6.0" ||
+            valorNotaNormalizado === "NA" ||
+            (!isNaN(notaNum) && notaNum < 7)
+          ) {
+            estiloReprobado = "background-color: #f8d7da; color: #721c24; font-weight: bold; border-color: #f5c6cb;";
+          }
+    
+          const selectBloqueado = inputsCapturaDebenEstarBloqueados();
+          const attrDisabled = selectBloqueado ? " disabled" : "";
+          const claseLectura = selectBloqueado ? " captura-solo-lectura" : "";
+
+          let tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="badge bg-secondary font-monospace fs-6">${al.matricula}</span></td>
+            <td class="fw-medium">${al.nombre}</td>
+            <td>
+              <select class="form-select input-calif${claseLectura}" id="calif-${index}"
+                      style="${estiloReprobado}"
+                      onchange="evaluarColorAlCambiar(this)"
+                      data-matricula="${al.matricula}"
+                      data-nombre="${al.nombre}"
+                      data-carrera="${al.carrera || ''}"${attrDisabled}>
+                ${opcionesHtml}
+              </select>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        
+        document.getElementById("seccion-captura").style.setProperty("display", "block", "important");
+        aplicarEstadoControlesCaptura();
+      }
+    
+      function evaluarColorAlCambiar(elemento) {
+        if (inputsCapturaDebenEstarBloqueados()) return;
+        let valor = elemento.value.toUpperCase();
+        let n = parseFloat(elemento.value);
+        if (valor === "6" || valor === "6.0" || valor === "NA" || (!isNaN(n) && n < 7)) {
+          elemento.style = "background-color: #f8d7da; color: #721c24; font-weight: bold; border-color: #f5c6cb;";
+        } else {
+          elemento.style = "";
+        }
+      }
+    
+      function actualizarIndicadorEstadoUnidad(meta) {
+        const panel = document.getElementById("panel-estado-unidad");
+        const badge = document.getElementById("badge-estado-unidad");
+        if (!panel || !badge) return;
+        panel.style.display = "block";
+        const estadoNorm = normalizarEstadoCapturaUnidad(meta ? meta.estado_captura : null);
+        estadoCapturaUnidadActual = estadoNorm;
+        if (estadoNorm !== "DEFINITIVO") {
+          edicionDefinitivaActiva = false;
+        }
+        aplicarEstadoControlesCaptura();
+        if (estadoNorm === "DEFINITIVO") {
+          badge.className = "badge bg-success fs-6";
+          badge.innerText = "DEFINITIVO";
+        } else if (estadoNorm === "TEMPORAL") {
+          badge.className = "badge bg-warning text-dark fs-6";
+          badge.innerText = "TEMPORAL";
+        } else {
+          badge.className = "badge bg-secondary fs-6";
+          badge.innerText = "SIN GUARDAR";
+        }
+      }
+
+      function formatearFechaGeneracionActa() {
+        return new Date().toLocaleString("es-MX", {
+          timeZone: "America/Mexico_City",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      }
+
+      function guardarCalificaciones(tipoGuardado) {
+        if (capturaBloqueadaActual) {
+          Swal.fire({
+            icon: "error",
+            title: "Captura cerrada",
+            text: "El periodo de captura está cerrado. No es posible guardar calificaciones.",
+            confirmButtonColor: "#842029"
+          });
+          return;
+        }
+
+        const modo = (tipoGuardado || "TEMPORAL").toUpperCase();
+        if (modo === "TEMPORAL" && estadoCapturaUnidadActual === "DEFINITIVO") {
+          Swal.fire({
+            icon: "info",
+            title: "Guardado temporal no disponible",
+            text: "Esta unidad ya fue guardada en definitivo. Solo puede actualizar con «Guardar definitivo».",
+            confirmButtonColor: "#5c061c"
+          });
+          return;
+        }
+
+        if (modo === "DEFINITIVO" && estadoCapturaUnidadActual === "DEFINITIVO" && !edicionDefinitivaActiva) {
+          Swal.fire({
+            icon: "question",
+            title: "¿Corregir calificaciones definitivas?",
+            html: "Las calificaciones están bloqueadas para evitar confusiones. Si necesita modificarlas, confirme para <strong>habilitar la edición</strong> y luego guarde de nuevo en definitivo.",
+            showCancelButton: true,
+            confirmButtonColor: "#198754",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "Sí, habilitar edición",
+            cancelButtonText: "Cancelar"
+          }).then(function(r) {
+            if (r.isConfirmed) {
+              edicionDefinitivaActiva = true;
+              aplicarEstadoControlesCaptura();
+            }
+          });
+          return;
+        }
+
+        const inputs = document.querySelectorAll(".input-calif");
+        const asignacionVal = document.getElementById("select-asignacion").value;
+        const periodoVal = document.getElementById("select-periodo").value;
+
+        if (!asignacionVal || !periodoVal) {
+          Swal.fire({
+            icon: "error",
+            title: "Faltan filtros",
+            text: "Por favor selecciona primero un Grupo/Materia y una Unidad.",
+            confirmButtonColor: "#5c061c"
+          });
+          return;
+        }
+
+        const datosAsig = asignacionVal.split("|");
+        const grupo = datosAsig[0];
+        const materia = datosAsig[1];
+
+        let paquetCalificaciones = [];
+        let hayErrores = false;
+
+        for (let i = 0; i < inputs.length; i++) {
+          let input = inputs[i];
+          let valRaw = input.value.trim();
+          let nombre = input.getAttribute("data-nombre");
+
+          if (valRaw === "") {
+            Swal.fire({
+              icon: "info",
+              title: "Calificación incompleta",
+              text: "Por favor selecciona la calificación para: " + nombre,
+              confirmButtonColor: "#5c061c"
+            }).then(function() {
+              input.focus();
+            });
+            hayErrores = true;
+            break;
+          }
+
+          paquetCalificaciones.push({
+            matricula: input.getAttribute("data-matricula").toString(),
+            nombre: nombre.toString(),
+            grupo: grupo.toString(),
+            materia: materia.toString(),
+            carrera: input.getAttribute("data-carrera").toString(),
+            periodo: periodoVal.toString(),
+            nota: valRaw
+          });
+        }
+
+        if (hayErrores) return;
+
+        const esDefinitivo = modo === "DEFINITIVO";
+        Swal.fire({
+          title: esDefinitivo ? "¿Guardar de forma definitiva?" : "¿Guardar de forma temporal?",
+          html: esDefinitivo
+            ? "Las calificaciones de <strong>" + paquetCalificaciones.length + "</strong> alumnos (unidad <strong>" + periodoVal + "</strong>) quedarán como <strong>DEFINITIVAS</strong> para el acta de integración."
+            : "Las calificaciones se guardarán como <strong>TEMPORALES</strong>. Podrá seguir editando y descargar actas parciales con leyenda de borrador.",
+          icon: esDefinitivo ? "warning" : "question",
+          showCancelButton: true,
+          confirmButtonColor: esDefinitivo ? "#198754" : "#ffc107",
+          cancelButtonColor: "#6c757d",
+          confirmButtonText: esDefinitivo ? "Sí, guardar definitivo" : "Sí, guardar temporal",
+          cancelButtonText: "Revisar"
+        }).then(function(result) {
+          if (!result.isConfirmed) return;
+
+          const bTemp = document.getElementById("btn-guardar-temporal");
+          const bDef = document.getElementById("btn-guardar-definitivo");
+          if (bTemp) bTemp.disabled = true;
+          if (bDef) bDef.disabled = true;
+          mostrarLoader("Guardando calificaciones (" + modo + ")...");
+
+          google.script.run.withSuccessHandler(function(respuestaServidor) {
+            ocultarLoader();
+            if (modo === "DEFINITIVO") {
+              estadoCapturaUnidadActual = "DEFINITIVO";
+              edicionDefinitivaActiva = false;
+            }
+            aplicarEstadoBloqueoCaptura(capturaBloqueadaActual, false);
+            aplicarEstadoControlesCaptura();
+            Swal.fire({
+              icon: "success",
+              title: "¡Proceso exitoso!",
+              text: respuestaServidor,
+              confirmButtonColor: "#198754"
+            });
+            evaluarCambioFiltros();
+            actualizarEstadoActaIntegracion();
+          }).withFailureHandler(function(err) {
+            ocultarLoader();
+            aplicarEstadoBloqueoCaptura(capturaBloqueadaActual, false);
+            if (err.message && err.message.indexOf("captura") !== -1) {
+              aplicarEstadoBloqueoCaptura(true, true);
+            }
+            Swal.fire("No se pudo guardar", err.message, "error");
+          }).guardarCalificacionesBackend(paquetCalificaciones, modo, {
+            confirmarCorreccionDefinitiva: !!edicionDefinitivaActiva
+          });
+        });
+      }
+    
+     function generarExcelActa() {
+      // Validación estricta en tiempo real consultando al servidor
+      google.script.run.withSuccessHandler(function(estaBloqueado) {
+        if(estaBloqueado) {
+          Swal.fire("Descarga bloqueada", "El periodo de descargas y captura ha concluido.", "error");
+          return;
+        }
+    
+        // --- CONTINÚA CON TU PROCESO ORIGINAL DE GENERACIÓN DE EXCEL ---
+        const nombreProfesor = document.getElementById("txt-correo").getAttribute("data-nombre-profesor") || "Docente Institucional";
+        const asignacionVal = document.getElementById("select-asignacion").value;
+        const periodoVal = document.getElementById("select-periodo").value;
+        
+        if(!asignacionVal || !periodoVal) {
+          Swal.fire({ icon: 'error', title: 'Acción bloqueada', text: 'Por favor, seleccione un Grupo/Materia y una Unidad antes de generar el acta.', confirmButtonColor: '#5c061c' });
+          return;
+        }
+        
+        const datosAsig = asignacionVal.split("|");
+        const grupo = datosAsig[0];
+        const materia = datosAsig[1];
+        const inputs = document.querySelectorAll(".input-calif");
+        
+        if(inputs.length === 0) {
+          Swal.fire({ icon: 'warning', title: 'Sin alumnos', text: 'No hay alumnos en la lista para poder exportar.', confirmButtonColor: '#5c061c' });
+          return;
+        }
+        
+        let html = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="utf-8">
+            <style>
+              td { border: 0.5pt solid #dee2e6; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; vertical-align: middle; }
+              th { border: 0.5pt solid #495057; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; vertical-align: middle; }
+              .titulo-principal { background-color: #0f5132; color: #ffffff; font-size: 14pt; font-weight: bold; text-align: center; height: 35pt; }
+              .lbl-meta { background-color: #f8f9fa; font-weight: bold; color: #333333; height: 20pt; padding-left: 6px; }
+              .val-meta { color: #212529; padding-left: 10px; }
+            </style>
+          </head>
+          <body>
+            <table>
+              <tr><th colspan="3" class="titulo-principal">ACTA PROVISIONAL DE CALIFICACIONES UTZMG</th></tr>
+              <tr><td class="lbl-meta">Profesor:</td><td colspan="2" class="val-meta" style="text-transform: uppercase;">${nombreProfesor}</td></tr>
+              <tr><td class="lbl-meta">Materia:</td><td colspan="2" class="val-meta">${materia}</td></tr>
+              <tr><td class="lbl-meta">Grupo:</td><td colspan="2" class="val-meta">${grupo}</td></tr>
+              <tr><td class="lbl-meta">Evaluación:</td><td colspan="2" class="val-meta">Unidad: ${periodoVal}</td></tr>
+            </table>
+          </body>
+          </html>`;
+          
+          let blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+          let url = URL.createObjectURL(blob);
+          let a = document.createElement('a');
+          a.href = url;
+          a.download = `Acta_${grupo}_Unidad_${periodoVal}.xls`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          // --- FIN DE TU PROCESO ORIGINAL ---
+    
+      }).obtenerEstadoBloqueo();
+    }
+    
+    function cargarDatosDashboard() {
+      console.log("➡️ [DIAGNÓSTICO]: Actualizando Dashboard con soporte multi-nivel de periodos.");
+      
+      if (typeof mostrarLoader === "function") {
+        mostrarLoader("Sincronizando registros analíticos institucionales...");
+      }
+    
+      google.script.run
+        .withSuccessHandler(function(data) {
+          console.log("✅ [DIAGNÓSTICO]: Datos recibidos con éxito:", data);
+          const sumaBarras = (data.carrerasValores || []).reduce((a, b) => a + (Number(b) || 0), 0);
+          console.log("📊 Dashboard:", data.dashboardVersion || "(sin versión — despliegue antiguo)", "| suma barras:", sumaBarras, "| total KPI:", data.matriculaTotal);
+          if (!data.dashboardVersion) {
+            console.warn("⚠️ La Web App no tiene el código nuevo. En Apps Script: Implementar → Administrar implementaciones → Editar → Nueva versión.");
+          }
+    
+          // 1. ASIGNACIÓN DE CONTADORES EN LAS TARJETAS (KPI)
+          const tMatricula = document.getElementById("lbl-total-alumnos");
+          const tEficiencia = document.getElementById("lbl-eficiencia");
+          const tRiesgo = document.getElementById("lbl-riesgo");
+          const tReprobacion = document.getElementById("lbl-carrera-reprobacion");
+          const tPromedio = document.getElementById("lbl-mejor-promedio");
+    
+          if (tMatricula) tMatricula.innerText = data.matriculaTotal !== undefined ? data.matriculaTotal : 0;
+          if (tEficiencia) tEficiencia.innerText = data.eficienciaGlobal || "0%";
+          if (tRiesgo) tRiesgo.innerText = data.alumnosEnRiesgo !== undefined ? data.alumnosEnRiesgo : 0;
+          if (tReprobacion) tReprobacion.innerText = data.carreraMayorReprobacion || "N/A";
+          if (tPromedio) tPromedio.innerText = data.carreraMejorPromedio || "N/A";
+          
+          // 2. CONSTRUCCIÓN DE LA TABLA SEMÁFORO DE DOCENTES
+          const tbody = document.getElementById("tabla-semaforo-docentes");
+          if (tbody) {
+            tbody.innerHTML = "";
+            if (data.docentesSemaforo && data.docentesSemaforo.length > 0) {
+              data.docentesSemaforo.forEach(doc => {
+                let total = Number(doc.total) || 0;
+                let cargas = Number(doc.cargas) || 0;
+                let porcentaje = total > 0 ? (cargas / total) * 100 : 0;
+                
+                let badgeColor = "bg-danger";
+                if (porcentaje >= 100) badgeColor = "bg-success";
+                else if (porcentaje > 0) badgeColor = "bg-warning text-dark";
+                
+                let tr = document.createElement("tr");
+                tr.innerHTML = `
+                  <td>
+                    <div class="fw-bold text-dark">${doc.nombre}</div>
+                    <div class="text-muted small">${doc.correo}</div>
+                  </td>
+                  <td class="text-center fw-bold">${total}</td>
+                  <td class="text-center text-success fw-bold">${cargas}</td>
+                  <td class="text-center">
+                    <span class="badge ${badgeColor} px-3 py-2">${porcentaje.toFixed(0)}%</span>
+                  </td>
+                `;
+                tbody.appendChild(tr);
+              });
+            } else {
+              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay avance de docentes registrado.</td></tr>';
+            }
+          }
+          
+          // 3. RE-RENDERIZADO DE LAS 3 GRÁFICAS SEPARADAS
+          const siglasEje = data.carrerasSiglas || [
+            "TSU_SMF", "ING_IMT", "TSU_DSM", "ING_NITID", "TSU_ES",
+            "TSU_PA", "LIC_LPC", "TSU_TUR", "LIC_LTU", "TSU_MER", "LIC_LNM"
+          ];
+          const etiquetas = data.carrerasLabels || siglasEje;
+          
+          // Gráfica 1: Matrícula Pura
+          const canvas1 = document.getElementById('graficaCarreras');
+          if (canvas1) {
+            const ctx1 = canvas1.getContext('2d');
+            if (miGraficaInstancia) { miGraficaInstancia.destroy(); }
+            
+            let fondo = []; let borde = [];
+            siglasEje.forEach(s => {
+              if (s.indexOf("TSU_SMF") === 0 || s.indexOf("ING_IMT") === 0) { fondo.push('#0f5132'); borde.push('#0b3d26'); }
+              else if (s.indexOf("TSU_DSM") === 0 || s.indexOf("ING_NITID") === 0) { fondo.push('#0d6efd'); borde.push('#0a58ca'); }
+              else if (s.indexOf("TSU_ES") === 0 || s.indexOf("ING_EDS") === 0) { fondo.push('#198754'); borde.push('#146c43'); }
+              else if (s.indexOf("TSU_PA") === 0 || s.indexOf("LIC_LPC") === 0) { fondo.push('#5c061c'); borde.push('#420413'); }
+              else if (s.indexOf("TSU_MER") === 0 || s.indexOf("LIC_LNM") === 0) { fondo.push('#fd7e14'); borde.push('#ca6510'); }
+              else { fondo.push('#20c997'); borde.push('#1aa179'); }
+            });
+            
+            miGraficaInstancia = new Chart(ctx1, {
+              type: 'bar',
+              data: {
+                labels: etiquetas,
+                datasets: [{ label: 'Alumnos Inscritos', data: data.carrerasValores || [], backgroundColor: fondo, borderColor: borde, borderWidth: 1 }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { ticks: { maxRotation: 45, minRotation: 35, autoSkip: false } },
+                  y: { beginAtZero: true }
+                }
+              }
+            });
+          }
+    
+          // Gráfica 2: Eficiencia Aprobados vs Reprobados
+          const canvas2 = document.getElementById('graficaEficienciaCarreras');
+          if (canvas2) {
+            const ctx2 = canvas2.getContext('2d');
+            if (miGraficaEficienciaInstancia) { miGraficaEficienciaInstancia.destroy(); }
+            miGraficaEficienciaInstancia = new Chart(ctx2, {
+              type: 'bar',
+              data: {
+                labels: etiquetas,
+                datasets: [
+                  { label: '% Aprobados', data: data.carrerasAprobacionValues || [], backgroundColor: '#198754' },
+                  { label: '% Reprobados', data: data.carrerasReprobacionValues || [], backgroundColor: '#dc3545' }
+                ]
+              },
+              options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
+            });
+          }
+    
+          // Gráfica 3: Promedios
+          const canvas3 = document.getElementById('graficaPromediosCarreras');
+          if (canvas3) {
+            const ctx3 = canvas3.getContext('2d');
+            if (miGraficaPromediosInstancia) { miGraficaPromediosInstancia.destroy(); }
+            miGraficaPromediosInstancia = new Chart(ctx3, {
+              type: 'line',
+              data: {
+                labels: etiquetas,
+                datasets: [{ label: 'Promedio Carrera', data: data.carrerasPromediosValues || [], borderColor: '#fd7e14', backgroundColor: 'rgba(253, 126, 20, 0.1)', fill: true, tension: 0.1 }]
+              },
+              options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 10 } } }
+            });
+          }
+    
+          if (typeof ocultarLoader === "function") ocultarLoader();
+        })
+        .withFailureHandler(function(error) {
+          console.error("Error en getDatosDashboardAdmin:", error);
+          if (typeof ocultarLoader === "function") ocultarLoader();
+          alert("⚠️ Error de Red/Servidor: " + error.message);
+        })
+        .getDatosDashboardAdmin();
+    }
+    
+      function toggleBloqueoPlataforma() {
+        google.script.run.withSuccessHandler(function(estaBloqueado) {
+          const titulo = estaBloqueado ? "¿Deseas abrir el periodo de captura?" : "¿Deseas cerrar el periodo de captura?";
+          const texto = estaBloqueado ? "Los docentes podrán volver a guardar calificaciones." : "Se deshabilitará el botón de guardado para todos los docentes.";
+          const btnTexto = estaBloqueado ? "Sí, Abrir Captura" : "Sí, Cerrar Captura";
+          const btnColor = estaBloqueado ? "#198754" : "#dc3545";
+    
+          Swal.fire({
+            title: titulo,
+            text: texto,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: btnColor,
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: btnTexto,
+            cancelButtonText: 'Cancelar'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              mostrarLoader("Actualizando directivas de la plataforma...");
+              google.script.run.withSuccessHandler(function(respuesta) {
+                ocultarLoader();
+                Swal.fire('¡Hecho!', respuesta, 'success');
+                actualizarBotonAdminVisual(!estaBloqueado);
+              }).cambiarEstadoBloqueo(!estaBloqueado);
+            }
+          });
+        }).obtenerEstadoBloqueo();
+      }
+    
+      function actualizarBotonAdminVisual(estaBloqueado) {
+        const btn = document.getElementById("btn-toggle-bloqueo");
+        if(btn) {
+          if(estaBloqueado) {
+            btn.className = "btn btn-sm btn-success fw-bold text-nowrap";
+            btn.innerHTML = "🔓 Abrir Captura";
+          } else {
+            btn.className = "btn btn-sm btn-warning fw-bold text-nowrap";
+            btn.innerHTML = "🔒 Cerrar Captura";
+          }
+        }
+      }
+    
+      function extraerGrupoMateriaCarreraDesdeAsignacion(asignacionRaw) {
+        let bloqueGrupoMateria = asignacionRaw;
+        let materia = "";
+        if (asignacionRaw.includes(" - ")) {
+          const partes = asignacionRaw.split(" - ");
+          bloqueGrupoMateria = partes[0].trim();
+          materia = partes[1].trim();
+        } else if (asignacionRaw.includes("|")) {
+          const partes = asignacionRaw.split("|");
+          bloqueGrupoMateria = partes[0].trim();
+          materia = partes[1].trim();
+        }
+        let grupoLimpio = bloqueGrupoMateria;
+        let claveCarrera = "UTZMG";
+        if (bloqueGrupoMateria.includes(" ")) {
+          const fragmentos = bloqueGrupoMateria.split(" ");
+          grupoLimpio = fragmentos[0].trim();
+          claveCarrera = fragmentos[fragmentos.length - 1].trim().toUpperCase();
+        }
+        return { bloqueGrupoMateria: bloqueGrupoMateria, materia: materia, grupoLimpio: grupoLimpio, claveCarrera: claveCarrera };
+      }
+
+      function pintarPieDiscretoActaPdf(doc, margin, pageWidth, pageHeight, codigoVerificacion) {
+        const yPie = pageHeight - 4.5;
+        const pagina = doc.internal.getNumberOfPages();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(5.5);
+        doc.setTextColor(140, 140, 140);
+        doc.text("Pág. " + pagina, margin, yPie);
+        if (codigoVerificacion) {
+          doc.text(codigoVerificacion, pageWidth - margin, yPie, { align: "right" });
+        }
+      }
+
+      function finalizarActaPdfConCodigo(opcionesPdf, payloadRegistro, requiereCodigo) {
+        if (!requiereCodigo) {
+          prepararYGenerarActaPdf(opcionesPdf);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (r && r.exito && r.codigo) {
+              opcionesPdf.codigoVerificacion = r.codigo;
+            }
+            prepararYGenerarActaPdf(opcionesPdf);
+          })
+          .withFailureHandler(function(err) {
+            Swal.fire(
+              "Código no registrado",
+              "Se generará el PDF, pero no se pudo asignar código de autenticidad: " + err.message,
+              "warning"
+            ).then(function() {
+              prepararYGenerarActaPdf(opcionesPdf);
+            });
+          })
+          .registrarCodigoAutenticidadActa(payloadRegistro);
+      }
+
+      function consultarActaPorCodigo() {
+        if (!usuarioEsAdminActual) {
+          Swal.fire(
+            "Acceso restringido",
+            "La verificación de códigos de acta está disponible solo para administradores del sistema.",
+            "info"
+          );
+          return;
+        }
+        Swal.fire({
+          title: "Verificar autenticidad de acta",
+          input: "text",
+          inputLabel: "Código impreso en el documento (ej. UTZMG-2026S-ABC12345)",
+          inputPlaceholder: "UTZMG-2026S-...",
+          showCancelButton: true,
+          confirmButtonColor: "#0f5132",
+          cancelButtonText: "Cancelar",
+          confirmButtonText: "Verificar"
+        }).then(function(result) {
+          if (!result.isConfirmed || !result.value) return;
+          Swal.fire({
+            title: "Consultando registro...",
+            allowOutsideClick: false,
+            didOpen: function() { Swal.showLoading(); }
+          });
+          google.script.run
+            .withSuccessHandler(function(r) {
+              Swal.close();
+              if (!r || !r.exito) {
+                Swal.fire(
+                  "No verificada",
+                  (r && r.mensaje) ? r.mensaje : "El código no está en el sistema.",
+                  "error"
+                );
+                return;
+              }
+              const d = r.datos;
+              const tipo = d.tipo_acta === "INTEGRACION" ? "Acta de integración" : "Acta parcial";
+              Swal.fire({
+                icon: "success",
+                title: "Documento registrado en el sistema",
+                html:
+                  "<p class='text-start mb-1'><strong>Código:</strong> " + d.codigo + "</p>" +
+                  "<p class='text-start mb-1'><strong>Tipo:</strong> " + tipo + "</p>" +
+                  "<p class='text-start mb-1'><strong>Cuatrimestre:</strong> " + d.cuatrimestre + "</p>" +
+                  "<p class='text-start mb-1'><strong>Grupo:</strong> " + d.grupo + " · <strong>Unidad:</strong> " + (d.unidad || "—") + "</p>" +
+                  "<p class='text-start mb-1'><strong>Asignatura:</strong> " + d.materia + "</p>" +
+                  "<p class='text-start mb-1'><strong>Carrera:</strong> " + d.nombre_carrera + "</p>" +
+                  "<p class='text-start mb-1'><strong>Profesor(a):</strong> " + d.nombre_profesor + "</p>" +
+                  "<p class='text-start mb-1'><strong>Alumnos en acta:</strong> " + d.total_alumnos + "</p>" +
+                  "<p class='text-start mb-0 small text-muted'>Registro inicial: " + (d.fecha_registro || "—") + "</p>",
+                confirmButtonColor: "#0f5132"
+              });
+            })
+            .withFailureHandler(function(err) {
+              Swal.close();
+              Swal.fire("Error", err.message, "error");
+            })
+            .consultarVerificacionActa(result.value);
+        });
+      }
+
+      function colocarFirmaFijaPieUltimaPagina(doc, nombreProfesor, margin, pageWidth, pageHeight) {
+        const marg = margin || 10;
+        const alturaPie = 5;
+        const cx = pageWidth / 2;
+        const anchoLinea = 72;
+        const yNombre = pageHeight - marg - alturaPie;
+        const yLinea = yNombre - 5.5;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.2);
+        doc.line(cx - anchoLinea / 2, yLinea, cx + anchoLinea / 2, yLinea);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text((nombreProfesor || "DOCENTE UTZMG").toUpperCase(), cx, yNombre, {
+          align: "center",
+          maxWidth: pageWidth - marg * 2
+        });
+      }
+
+      function prepararYGenerarActaPdf(opciones) {
+        function emitirPdf(logoResp) {
+          if (logoResp && logoResp.exito && logoResp.data) {
+            opciones.logoBase64 = logoResp.data;
+          }
+          generarActaPdfUTZMG(opciones);
+        }
+        if (logoActaCache && logoActaCache.exito) {
+          emitirPdf(logoActaCache);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (r && r.exito) logoActaCache = r;
+            emitirPdf(r);
+          })
+          .withFailureHandler(function() {
+            emitirPdf(null);
+          })
+          .getLogoActaBase64();
+      }
+
+      function generarActaPdfUTZMG(opciones) {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+          Swal.fire("Error", "No se cargó la librería PDF. Recargue la página e intente de nuevo.", "error");
+          return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+        const margin = 10;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const codigoPie = opciones.codigoVerificacion || "";
+
+        let y = margin;
+        let textLeft = margin;
+
+        if (opciones.logoBase64) {
+          const logoSz = 13;
+          doc.addImage(
+            "data:image/png;base64," + opciones.logoBase64,
+            "PNG",
+            margin,
+            y,
+            logoSz,
+            logoSz
+          );
+          textLeft = margin + logoSz + 3;
+        }
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text(
+          "UNIVERSIDAD TECNOLÓGICA DE LA ZONA METROPOLITANA DE GUADALAJARA",
+          textLeft,
+          y + 4,
+          { maxWidth: pageWidth - textLeft - margin }
+        );
+        doc.setFontSize(8.5);
+        doc.text(opciones.subtituloDocumento, textLeft, y + 9.5, {
+          maxWidth: pageWidth - textLeft - margin
+        });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text("UTZMG · Control escolar", textLeft, y + 14);
+
+        y += 17;
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.15);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 3;
+
+        const fechaGen = opciones.fechaGeneracion || formatearFechaGeneracionActa();
+        const cuatrimestre = opciones.cuatrimestre || "2026S";
+        const colDer = pageWidth / 2 + 1;
+        doc.setFontSize(6.8);
+        doc.setTextColor(0, 0, 0);
+
+        function metaLinea(etiq, valor, x, yy, anchoVal) {
+          doc.setFont("helvetica", "bold");
+          doc.text(etiq, x, yy);
+          doc.setFont("helvetica", "normal");
+          doc.text(doc.splitTextToSize(String(valor || "—"), anchoVal), x + 18, yy);
+        }
+
+        metaLinea("Profesor(a):", opciones.nombreProfesor, margin, y, pageWidth / 2 - margin - 22);
+        metaLinea("Carrera:", opciones.carrera, colDer, y, pageWidth - colDer - margin - 20);
+        y += 4.3;
+        metaLinea("Asignatura:", opciones.materia, margin, y, pageWidth / 2 - margin - 22);
+        metaLinea("Grupo:", opciones.grupo, colDer, y, 40);
+        y += 4.3;
+        metaLinea("Evaluación:", opciones.textoEvaluacion, margin, y, pageWidth / 2 - margin - 22);
+        metaLinea("Cuatrimestre:", cuatrimestre, colDer, y, 30);
+        y += 4.3;
+        metaLinea("Generado:", fechaGen, margin, y, pageWidth - margin - 38);
+        y += 6.3;
+
+        let startTabla = y;
+        if (opciones.mostrarLeyendaTemporal) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(6.5);
+          doc.setTextColor(90, 90, 90);
+          doc.text("Borrador — captura temporal (no definitiva)", pageWidth / 2, y + 1, { align: "center" });
+          startTabla = y + 4.5;
+        }
+
+        const cuerpoTabla = opciones.filas.map(function(f) {
+          return [
+            String(f[0]),
+            String(f[1]),
+            String(f[2]),
+            String(f[3] !== undefined && f[3] !== null ? f[3] : ""),
+            String(f[4] !== undefined && f[4] !== null ? f[4] : "")
+          ];
+        });
+
+        const tableW = pageWidth - margin * 2;
+        const wNum = 7;
+        const wMat = 24;
+        const wCalNum = 22;
+        const wCalAlf = 32;
+        const wNom = tableW - wNum - wMat - wCalNum - wCalAlf;
+        const tituloNum = "Escala numérica";
+        const tituloAlf = "Escala alfabética";
+
+        const reservarPieFirma = margin + 20;
+        doc.autoTable({
+          head: [[opciones.etiquetaNum || "N°", "Matrícula", "Nombre", tituloNum, tituloAlf]],
+          body: cuerpoTabla,
+          startY: startTabla,
+          margin: { left: margin, right: margin, bottom: reservarPieFirma },
+          tableWidth: tableW,
+          styles: {
+            font: "helvetica",
+            fontSize: 7,
+            cellPadding: { top: 0.4, bottom: 0.4, left: 0.9, right: 0.9 },
+            lineColor: [160, 160, 160],
+            lineWidth: 0.08,
+            valign: "middle",
+            textColor: [0, 0, 0],
+            overflow: "linebreak"
+          },
+          headStyles: {
+            fillColor: [255, 255, 255],
+            textColor: [0, 0, 0],
+            fontStyle: "bold",
+            halign: "center",
+            lineWidth: 0.12,
+            lineColor: [0, 0, 0],
+            fontSize: 6.8
+          },
+          columnStyles: {
+            0: { halign: "center", cellWidth: wNum },
+            1: { halign: "center", cellWidth: wMat },
+            2: { halign: "left", cellWidth: wNom },
+            3: { halign: "center", cellWidth: wCalNum, fontStyle: "bold" },
+            4: { halign: "left", cellWidth: wCalAlf, fontSize: 6.5 }
+          },
+          didDrawPage: function() {
+            pintarPieDiscretoActaPdf(doc, margin, pageWidth, pageHeight, codigoPie);
+          }
+        });
+
+        doc.setPage(doc.internal.getNumberOfPages());
+        colocarFirmaFijaPieUltimaPagina(doc, opciones.nombreProfesor, margin, pageWidth, pageHeight);
+        pintarPieDiscretoActaPdf(doc, margin, pageWidth, pageHeight, codigoPie);
+        doc.save(opciones.nombreArchivo);
+      }
+
+        function ejecutarDescargaExcelPuente() {
+      if (capturaBloqueadaActual) {
+        Swal.fire("Descarga bloqueada", "El periodo de captura ha concluido. No se permiten descargas de actas.", "error");
+        return;
+      }
+
+      const asignacionRaw = document.getElementById('select-asignacion').value;
+      const periodo = document.getElementById('select-periodo').value;
+      const correoDocente = document.getElementById('txt-correo').innerText || "";
+    
+      if (!asignacionRaw || !periodo) {
+        Swal.fire('⚠️ Atención', 'Por favor selecciona un Grupo/Materia y una Unidad antes de exportar.', 'warning');
+        return;
+      }
+    
+      const parsed = extraerGrupoMateriaCarreraDesdeAsignacion(asignacionRaw);
+      const bloqueGrupoMateria = parsed.bloqueGrupoMateria;
+      const materia = parsed.materia;
+      const grupoLimpio = parsed.grupoLimpio;
+      const claveCarrera = parsed.claveCarrera;
+    
+      Swal.fire({
+        title: 'Generando acta parcial',
+        text: 'Preparando PDF...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+    
+      google.script.run
+        .withSuccessHandler(function(respuesta) {
+          Swal.close();
+          if (!respuesta.exito || !respuesta.filas || respuesta.filas.length === 0) {
+            Swal.fire('❌ Reporte Vacío', 'No se encontraron alumnos para este grupo en la base de datos', 'error');
+            return;
+          }
+    
+          let nombreCompletoProfesor = respuesta.nombreProfesor || correoDocente || "DOCENTE UTZMG";
+          const periodoEtiqueta = periodo.toString().toUpperCase().replace(/^U?/, "U");
+          const esDefinitiva = respuesta.estadoCaptura === "DEFINITIVO";
+          const opcionesPdf = {
+            subtituloDocumento: "ACTA PARCIAL DE CALIFICACIONES PROVISIONAL",
+            nombreProfesor: nombreCompletoProfesor,
+            materia: materia || "Asignatura",
+            grupo: grupoLimpio,
+            carrera: respuesta.nombreCarrera || claveCarrera,
+            textoEvaluacion: "Unidad " + periodoEtiqueta,
+            filas: respuesta.filas,
+            etiquetaNota: "CALIFICACIÓN",
+            cuatrimestre: respuesta.cuatrimestre || "2026S",
+            fechaGeneracion: formatearFechaGeneracionActa(),
+            mostrarLeyendaTemporal: !esDefinitiva,
+            modeloEvaluacionEtiqueta: respuesta.modeloEvaluacionEtiqueta || "",
+            nombreArchivo: "Acta_Parcial_" + grupoLimpio + "_" + claveCarrera + "_" + periodoEtiqueta + ".pdf"
+          };
+          finalizarActaPdfConCodigo(opcionesPdf, {
+            tipoActa: "PARCIAL",
+            grupo: bloqueGrupoMateria,
+            materia: materia,
+            unidad: periodoEtiqueta,
+            cuatrimestre: respuesta.cuatrimestre || "2026S",
+            nombreProfesor: nombreCompletoProfesor,
+            nombreCarrera: respuesta.nombreCarrera || claveCarrera,
+            filas: respuesta.filas
+          }, esDefinitiva);
+        })
+        .withFailureHandler(function(error) {
+          Swal.close();
+          Swal.fire('❌ Error de Servidor', 'No se pudo conectar con Firebase: ' + error.message, 'error');
+        })
+        .obtenerDatosParaExcel(bloqueGrupoMateria, materia, periodo);
+    }
+    function colLetterFromIndex(colIndex) {
+      return XLSX.utils.encode_col(colIndex);
+    }
+
+    async function generarLibroExcelListaAsistencia(opciones, alumnos, logoResp) {
+      if (!window.ExcelJS) {
+        Swal.fire("Error", "No se cargó ExcelJS. Recargue la página.", "error");
+        return;
+      }
+
+      const NUM_SESIONES = 20;
+      const COL_SESION_INI = 4;
+      const COL_PCT = COL_SESION_INI + NUM_SESIONES;
+      const LAST_COL = COL_PCT;
+      const LC = colLetterFromIndex(LAST_COL - 1);
+      const fechaGen = opciones.fechaGeneracion || formatearFechaGeneracionActa();
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "UTZMG Control Escolar";
+      const sheet = workbook.addWorksheet("Asistencia", {
+        properties: { defaultRowHeight: 18 },
+        pageSetup: {
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: { left: 0.35, right: 0.35, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 }
+        }
+      });
+
+      sheet.getColumn(1).width = 5.5;
+      sheet.getColumn(2).width = 15;
+      sheet.getColumn(3).width = 40;
+      for (let c = COL_SESION_INI; c < COL_PCT; c++) {
+        sheet.getColumn(c).width = 5.8;
+      }
+      sheet.getColumn(COL_PCT).width = 13;
+
+      sheet.mergeCells("A1:A5");
+      sheet.mergeCells("B1:" + LC + "1");
+      sheet.mergeCells("B2:" + LC + "2");
+      sheet.mergeCells("B3:" + LC + "3");
+
+      sheet.getCell("B1").value = "UNIVERSIDAD TECNOLÓGICA DE LA ZONA METROPOLITANA DE GUADALAJARA";
+      sheet.getCell("B2").value = "LISTA DE ASISTENCIA PROVISIONAL";
+      sheet.getCell("B3").value = "UTZMG · Control escolar";
+
+      [1, 2, 3].forEach(function(r) {
+        sheet.getRow(r).height = r === 1 ? 22 : r === 2 ? 24 : 18;
+      });
+      sheet.getRow(4).height = 10;
+      sheet.getRow(5).height = 8;
+
+      if (logoResp && logoResp.exito && logoResp.data) {
+        try {
+          const imageId = workbook.addImage({
+            base64: logoResp.data,
+            extension: "png"
+          });
+          sheet.addImage(imageId, {
+            tl: { col: 0.2, row: 0.15 },
+            ext: { width: 76, height: 76 }
+          });
+        } catch (eLogo) {
+          console.warn("Logo lista asistencia:", eLogo);
+        }
+      }
+
+      const estiloTituloInst = {
+        font: { name: "Arial", size: 11, bold: true, color: { argb: "FF000000" } },
+        alignment: { vertical: "middle", horizontal: "left", wrapText: true }
+      };
+      const estiloSubtitulo = {
+        font: { name: "Arial", size: 10.5, bold: true, color: { argb: "FF000000" } },
+        alignment: { vertical: "middle", horizontal: "left" }
+      };
+      const estiloLeyenda = {
+        font: { name: "Arial", size: 9, italic: true, color: { argb: "FF505050" } },
+        alignment: { vertical: "middle", horizontal: "left" }
+      };
+      sheet.getCell("B1").style = estiloTituloInst;
+      sheet.getCell("B2").style = estiloSubtitulo;
+      sheet.getCell("B3").style = estiloLeyenda;
+
+      sheet.mergeCells("B5:" + LC + "5");
+      sheet.getCell("B5").border = {
+        bottom: { style: "medium", color: { argb: "FF000000" } }
+      };
+
+      function pintarMetaFila(rowNum, etiq1, val1, etiq2, val2) {
+        sheet.getRow(rowNum).height = 22;
+        sheet.getCell("A" + rowNum).value = etiq1;
+        sheet.mergeCells("B" + rowNum + ":H" + rowNum);
+        sheet.getCell("B" + rowNum).value = val1;
+        sheet.getCell("I" + rowNum).value = etiq2;
+        sheet.mergeCells("J" + rowNum + ":" + LC + rowNum);
+        sheet.getCell("J" + rowNum).value = val2;
+
+        ["A", "I"].forEach(function(col) {
+          sheet.getCell(col + rowNum).font = { name: "Arial", size: 10, bold: true };
+          sheet.getCell(col + rowNum).alignment = { vertical: "middle", horizontal: "left" };
+        });
+        ["B", "J"].forEach(function(col) {
+          const cell = sheet.getCell(col + rowNum);
+          cell.font = { name: "Arial", size: 10 };
+          cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4FAF8" } };
+        });
+      }
+
+      pintarMetaFila(6, "Profesor(a):", opciones.nombreProfesor || "—", "Carrera:", opciones.carrera || "—");
+      pintarMetaFila(7, "Asignatura:", opciones.materia || "—", "Grupo:", opciones.grupo || "—");
+      pintarMetaFila(8, "Cuatrimestre:", opciones.cuatrimestre || "2026S", "Generado:", fechaGen);
+
+      sheet.getRow(9).height = 12;
+
+      const ROW_HDR1 = 10;
+      const ROW_HDR2 = 11;
+      const ROW_FECHA = 12;
+      const ROW_ALU_INI = 13;
+
+      sheet.getRow(ROW_HDR1).height = 26;
+      sheet.getRow(ROW_HDR2).height = 20;
+      sheet.getRow(ROW_FECHA).height = 20;
+
+      sheet.getCell(ROW_HDR1, 1).value = "N°";
+      sheet.getCell(ROW_HDR1, 2).value = "Matrícula";
+      sheet.getCell(ROW_HDR1, 3).value = "Nombre";
+      sheet.mergeCells(ROW_HDR1, COL_SESION_INI, ROW_HDR1, COL_PCT - 1);
+      sheet.getCell(ROW_HDR1, COL_SESION_INI).value = "Registro de asistencia por sesión";
+      sheet.getCell(ROW_HDR1, COL_PCT).value = "% Asistencia";
+
+      for (let s = 0; s < NUM_SESIONES; s++) {
+        sheet.getCell(ROW_HDR2, COL_SESION_INI + s).value = s + 1;
+      }
+
+      sheet.getCell(ROW_FECHA, 3).value = "Fecha sesión:";
+      sheet.getCell(ROW_FECHA, 3).font = { name: "Arial", size: 9, bold: true, italic: true };
+      sheet.getCell(ROW_FECHA, 3).alignment = { horizontal: "right", vertical: "middle" };
+      for (let s = 0; s < NUM_SESIONES; s++) {
+        sheet.getCell(ROW_FECHA, COL_SESION_INI + s).value = "";
+      }
+
+      sheet.mergeCells(ROW_HDR1, 1, ROW_HDR2, 1);
+      sheet.mergeCells(ROW_HDR1, 2, ROW_HDR2, 2);
+      sheet.mergeCells(ROW_HDR1, 3, ROW_FECHA, 3);
+      sheet.mergeCells(ROW_HDR1, COL_PCT, ROW_FECHA, COL_PCT);
+
+      const bordeHead = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "medium", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } }
+      };
+      for (let c = 1; c <= LAST_COL; c++) {
+        [ROW_HDR1, ROW_HDR2, ROW_FECHA].forEach(function(r) {
+          const cell = sheet.getCell(r, c);
+          cell.font = { name: "Arial", size: c <= 3 && r === ROW_HDR1 ? 10 : 9, bold: r !== ROW_FECHA || c === 3 };
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+          cell.border = bordeHead;
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
+        });
+      }
+
+      alumnos.forEach(function(al, idx) {
+        const r = ROW_ALU_INI + idx;
+        sheet.getRow(r).height = 21;
+        sheet.getCell(r, 1).value = idx + 1;
+        sheet.getCell(r, 2).value = al.matricula;
+        sheet.getCell(r, 3).value = al.nombre;
+        for (let c = 1; c <= LAST_COL; c++) {
+          const cell = sheet.getCell(r, c);
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFA0A0A0" } },
+            bottom: { style: "thin", color: { argb: "FFA0A0A0" } },
+            left: { style: "thin", color: { argb: "FFA0A0A0" } },
+            right: { style: "thin", color: { argb: "FFA0A0A0" } }
+          };
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: c === 3 ? "left" : "center",
+            wrapText: c === 3
+          };
+          cell.font = { name: "Arial", size: 10, bold: c === 1 };
+          if (c <= 3) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F0F0" } };
+          } else if (c === COL_PCT) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAFAFA" } };
+          }
+        }
+      });
+
+      const rFirma = ROW_ALU_INI + alumnos.length + 3;
+      sheet.getRow(rFirma).height = 22;
+      sheet.getRow(rFirma + 1).height = 20;
+      sheet.mergeCells("B" + rFirma + ":I" + rFirma);
+      sheet.mergeCells("B" + (rFirma + 1) + ":I" + (rFirma + 1));
+      sheet.getCell("B" + rFirma).value = "_______________________________________________";
+      sheet.getCell("B" + (rFirma + 1)).value = (opciones.nombreProfesor || "DOCENTE UTZMG").toUpperCase();
+      sheet.getCell("B" + rFirma).alignment = { horizontal: "center" };
+      sheet.getCell("B" + (rFirma + 1)).alignment = { horizontal: "center" };
+      sheet.getCell("B" + (rFirma + 1)).font = { name: "Arial", size: 10, bold: true };
+
+      sheet.views = [{
+        state: "frozen",
+        xSplit: 3,
+        ySplit: ROW_ALU_INI - 1,
+        topLeftCell: "D" + ROW_ALU_INI,
+        activeCell: "D" + ROW_ALU_INI
+      }];
+
+      const nombreSeguroMateria = (opciones.materia || "Materia").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 25);
+      const nombreArchivo = "Lista_Asistencia_" + (opciones.grupo || "Grupo").replace(/[^a-zA-Z0-9]/g, "_") + "_" + nombreSeguroMateria + ".xlsx";
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function ejecutarDescargaAsistencia() {
+      if (capturaBloqueadaActual) {
+        Swal.fire("Descarga bloqueada", "El periodo de captura ha concluido. No se permiten descargas de listas.", "error");
+        return;
+      }
+
+      const selectAsignacion = document.getElementById("select-asignacion");
+      if (!selectAsignacion || !selectAsignacion.value || selectAsignacion.value.indexOf("|") === -1) {
+        Swal.fire("Atención", "Seleccione Grupo y Materia.", "warning");
+        return;
+      }
+
+      const parsed = extraerGrupoMateriaCarreraDesdeAsignacion(selectAsignacion.value);
+      const filasDom = document.querySelectorAll("#tabla-alumnos tr");
+      if (filasDom.length === 0) {
+        Swal.fire("Sin datos", "Cargue una unidad para obtener el listado de alumnos.", "warning");
+        return;
+      }
+
+      const alumnos = [];
+      filasDom.forEach(function(fila) {
+        const celdas = fila.querySelectorAll("td");
+        if (celdas.length >= 2) {
+          alumnos.push({
+            matricula: celdas[0].innerText.trim(),
+            nombre: celdas[1].innerText.trim()
+          });
+        }
+      });
+
+      Swal.fire({
+        title: "Generando lista",
+        text: "Preparando Excel...",
+        allowOutsideClick: false,
+        didOpen: function() { Swal.showLoading(); }
+      });
+
+      google.script.run.withSuccessHandler(function(meta) {
+        if (!meta || !meta.exito) {
+          Swal.close();
+          Swal.fire("Error", "No se pudieron obtener los datos institucionales.", "error");
+          return;
+        }
+        const opcionesLista = {
+          nombreProfesor: meta.nombreProfesor,
+          carrera: meta.nombreCarrera,
+          materia: parsed.materia,
+          grupo: parsed.grupoLimpio,
+          cuatrimestre: meta.cuatrimestre
+        };
+        google.script.run.withSuccessHandler(function(logoResp) {
+          if (logoResp && logoResp.exito) {
+            logoActaCache = logoResp;
+          }
+          generarLibroExcelListaAsistencia(opcionesLista, alumnos, logoResp || logoActaCache)
+            .then(function() { Swal.close(); })
+            .catch(function(errGen) {
+              Swal.close();
+              Swal.fire("Error", errGen.message || "No se pudo generar el Excel.", "error");
+            });
+        }).withFailureHandler(function() {
+          generarLibroExcelListaAsistencia(opcionesLista, alumnos, logoActaCache)
+            .then(function() { Swal.close(); })
+            .catch(function(errGen) {
+              Swal.close();
+              Swal.fire("Error", errGen.message || "No se pudo generar el Excel.", "error");
+            });
+        }).getLogoActaBase64();
+      }).withFailureHandler(function(err) {
+        Swal.close();
+        Swal.fire("Error", err.message || "No se pudo generar la lista.", "error");
+      }).obtenerMetadatosListaAsistencia(parsed.bloqueGrupoMateria, parsed.materia);
+    }
+
+    function ejecutarDescargaActaIntegracion() {
+      if (capturaBloqueadaActual) {
+        Swal.fire("Descarga bloqueada", "El periodo de captura ha concluido.", "error");
+        return;
+      }
+      const datos = obtenerGrupoMateriaDesdeSelect();
+      if (!datos) {
+        Swal.fire("Atención", "Seleccione Grupo y Materia.", "warning");
+        return;
+      }
+      Swal.fire({ title: "Generando acta de integración", text: "Preparando PDF...", allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+      google.script.run.withSuccessHandler(function(respuesta) {
+        Swal.close();
+        if (!respuesta.exito) {
+          Swal.fire("Acta no disponible", respuesta.error || "Complete todas las unidades.", "info");
+          return;
+        }
+        const correoDocente = document.getElementById("txt-correo").innerText || "";
+        const nombreProfesor = respuesta.nombreProfesor || correoDocente;
+        const parsed = extraerGrupoMateriaCarreraDesdeAsignacion(datos.grupo + "|" + datos.materia);
+        const opcionesPdf = {
+          subtituloDocumento: "ACTA DE INTEGRACIÓN — PROMEDIO FINAL",
+          nombreProfesor: nombreProfesor,
+          materia: datos.materia,
+          grupo: parsed.grupoLimpio,
+          carrera: respuesta.nombreCarrera || parsed.claveCarrera,
+          textoEvaluacion: "Integración de " + respuesta.totalUnidades + " unidad(es) — captura DEFINITIVA",
+          filas: respuesta.filas,
+          etiquetaNota: "PROMEDIO FINAL",
+          cuatrimestre: respuesta.cuatrimestre || "2026S",
+          fechaGeneracion: formatearFechaGeneracionActa(),
+          mostrarLeyendaTemporal: false,
+          modeloEvaluacionEtiqueta: respuesta.modeloEvaluacionEtiqueta || "",
+          nombreArchivo: "Acta_Integracion_" + parsed.grupoLimpio + "_" + parsed.claveCarrera + ".pdf"
+        };
+        finalizarActaPdfConCodigo(opcionesPdf, {
+          tipoActa: "INTEGRACION",
+          grupo: datos.grupo,
+          materia: datos.materia,
+          unidad: "INTEGRACION",
+          cuatrimestre: respuesta.cuatrimestre || "2026S",
+          nombreProfesor: nombreProfesor,
+          nombreCarrera: respuesta.nombreCarrera || parsed.claveCarrera,
+          filas: respuesta.filas
+        }, true);
+      }).withFailureHandler(function(err) {
+        Swal.close();
+        Swal.fire("Error", err.message, "error");
+      }).obtenerDatosActaIntegracion(datos.grupo, datos.materia);
+    }
+      
+    </script>

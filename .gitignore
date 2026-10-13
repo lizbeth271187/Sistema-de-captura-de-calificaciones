@@ -1,0 +1,24 @@
+# Secretos y credenciales (nunca subir)
+firebase_db_secret.local
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+.env
+portal_jwt_secret.local
+.clasprc.json
+
+# Catálogos grandes / datos locales (copia en Drive o Firebase)
+*_2026S.json
+Respaldo_FIREBASE_*.json
+*.xlsx
+*.csv
+archivo/
+
+# Generados o solo Apps Script
+Docentes2026S_embed.gs
+firebase_sync.py
+generar_catalogos_2026s.py
+_gen_docentes_embed.py
+Reporte_*.csv
+
+__pycache__/
+*.pyc

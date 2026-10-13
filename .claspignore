@@ -1,0 +1,12 @@
+# Datos y fuentes locales — no subir a Apps Script
+*.csv
+*.xlsx
+archivo/**
+*_2026S.json
+Reporte_*.csv
+Respaldo_FIREBASE_*.json
+firebase_sync.py
+generar_catalogos_2026s.py
+_gen_docentes_embed.py
+firebase_db_secret.local
+Docentes2026S_embed.gs

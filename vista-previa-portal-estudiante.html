@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vista previa — Portal estudiante</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background: #f4f6f8; }
+    .table-utzmg-header th {
+      background-color: #5c061c !important;
+      color: #fff !important;
+      font-size: 0.85rem;
+    }
+    .header-institucional {
+      border-left: 6px solid #5c061c;
+      padding-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4 mb-5">
+    <p class="text-muted small mb-3">Vista previa estática (datos de ejemplo). Abra este archivo en el navegador.</p>
+    <div class="header-institucional mb-4">
+      <span class="text-uppercase text-muted small">Portal del estudiante</span>
+      <h4 class="fw-bold m-0">Consulta de calificaciones</h4>
+    </div>
+
+    <div class="card p-4 shadow-sm mb-4 bg-white" style="border-left: 5px solid #0f5132;">
+      <strong class="fs-5">Ana García López</strong>
+      <span class="text-muted small ms-2">2024001234 · 2026-S · 09A IDGS</span>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm small mb-4">
+      Las calificaciones en <strong>temporal</strong> son provisionales. Las <strong>definitivo</strong> son las oficiales por unidad.
+    </div>
+
+    <div class="card shadow-sm bg-white mb-4">
+      <div class="card-header bg-white fw-bold py-3">Mis materias</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-utzmg-header">
+            <tr>
+              <th>Materia</th>
+              <th>Docente</th>
+              <th>Carrera</th>
+              <th class="text-center">Definitivas</th>
+              <th class="text-center">Temporales</th>
+              <th class="text-center">Ver</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="fw-semibold">Cálculo diferencial</td>
+              <td class="small">Mtro. Juan Pérez</td>
+              <td class="small">IDGS</td>
+              <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle font-monospace">1 / 3</span></td>
+              <td class="text-center"><span class="badge bg-warning-subtle text-dark border border-warning-subtle font-monospace">2 / 3</span></td>
+              <td class="text-center"><button class="btn btn-sm btn-outline-primary" disabled>Ver unidades</button></td>
+            </tr>
+            <tr class="table-active">
+              <td class="fw-semibold">Programación orientada a objetos</td>
+              <td class="small">Mtra. Martha Olmedo</td>
+              <td class="small">IDGS</td>
+              <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle font-monospace">0 / 3</span></td>
+              <td class="text-center"><span class="badge bg-warning-subtle text-dark border border-warning-subtle font-monospace">1 / 3</span></td>
+              <td class="text-center"><button class="btn btn-sm btn-outline-primary" disabled>Ver unidades</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card shadow-sm bg-white mb-4">
+      <div class="card-header bg-light py-3">
+        <span class="text-muted small d-block">Detalle de calificaciones</span>
+        <strong>Programación orientada a objetos</strong>
+        <span class="text-muted small d-block mt-1">Docente: Mtra. Martha Olmedo</span>
+        <span class="small d-block mt-1">
+          <span class="badge bg-success-subtle text-success border border-success-subtle me-1">Definitivas: 0 de 3</span>
+          <span class="badge bg-warning-subtle text-dark border border-warning-subtle">Temporales: 1 de 3</span>
+        </span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-bordered mb-0 align-middle">
+          <thead class="table-utzmg-header">
+            <tr>
+              <th>Unidad</th>
+              <th class="text-center">Numérica</th>
+              <th class="text-center">Alfabética</th>
+              <th class="text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-monospace fw-bold">U1</td>
+              <td class="text-center fw-bold">8.0</td>
+              <td class="text-center">B</td>
+              <td class="text-center"><span class="badge bg-warning text-dark">Temporal</span></td>
+            </tr>
+            <tr>
+              <td class="font-monospace fw-bold">U2</td>
+              <td class="text-center">—</td>
+              <td class="text-center">—</td>
+              <td class="text-center"><span class="badge bg-secondary">Sin captura</span></td>
+            </tr>
+            <tr>
+              <td class="font-monospace fw-bold">U3</td>
+              <td class="text-center">—</td>
+              <td class="text-center">—</td>
+              <td class="text-center"><span class="badge bg-secondary">Sin captura</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer bg-white">
+        <span class="badge bg-secondary fs-6 p-2">Promedio: Pendiente</span>
+        <p class="small text-muted mb-0 mt-2">1 de 3 con calificación temporal (puede cambiar). El promedio se publicará cuando todas las unidades estén en definitivo (0 de 3 en definitivo).</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
